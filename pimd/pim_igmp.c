@@ -29,6 +29,7 @@
 #include "pim_igmp.h"
 #include "pim_igmpv2.h"
 #include "pim_igmpv3.h"
+#include "pim_igmp_mtrace.h"
 #include "pim_iface.h"
 #include "pim_sock.h"
 #include "pim_mroute.h"
@@ -503,6 +504,11 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 
 	case PIM_IGMP_V2_LEAVE_GROUP:
 		return igmp_v2_recv_leave(igmp, ip_hdr->ip_src, from_str,
+					  igmp_msg, igmp_msg_len);
+
+	case PIM_IGMP_MTRACE_RESPONSE:
+	case PIM_IGMP_MTRACE_QUERY:
+		return igmp_mtrace_recv_packet(igmp, ip_hdr->ip_src, from_str,
 					  igmp_msg, igmp_msg_len);
 	}
 
