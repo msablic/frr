@@ -109,25 +109,20 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct in_addr from,
 	}
 
 	if (PIM_DEBUG_IGMP_PACKETS) {
-		char grp_str[16];
-		char src_str[16];
-		char dst_str[16];
-		char rsp_str[16];
-
-		strcpy(grp_str, inet_ntoa(mtracep->grp_addr));
-		strcpy(src_str, inet_ntoa(mtracep->src_addr));
-		strcpy(dst_str, inet_ntoa(mtracep->dst_addr));
-		strcpy(rsp_str, inet_ntoa(mtracep->rsp_addr));
+		char grp_str[INET_ADDRSTRLEN];
+		char src_str[INET_ADDRSTRLEN];
+		char dst_str[INET_ADDRSTRLEN];
+		char rsp_str[INET_ADDRSTRLEN];
 
 		zlog_debug(
 			"Recv Mtrace packet: hops=%d type=%d size=%d, grp=%s, src=%s, dst=%s rsp=%s",
 			mtracep->hops,
 			mtracep->type,
 			igmp_msg_len,
-			grp_str,
-			src_str,
-			dst_str,
-			rsp_str
+			inet_ntop(AF_INET,&(mtracep->grp_addr),grp_str,sizeof(grp_str)),
+			inet_ntop(AF_INET,&(mtracep->src_addr),src_str,sizeof(src_str)),
+			inet_ntop(AF_INET,&(mtracep->dst_addr),dst_str,sizeof(dst_str)),
+			inet_ntop(AF_INET,&(mtracep->rsp_addr),rsp_str,sizeof(rsp_str))
 			);
 	}
 
