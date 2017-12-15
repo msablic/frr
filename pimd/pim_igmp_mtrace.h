@@ -20,8 +20,6 @@
 #ifndef PIM_IGMP_MTRACE_H
 #define PIM_IGMP_MTRACE_H
 
-#include <netinet/in.h>
-
 #include <zebra.h>
 
 #include "pim_igmp.h"
