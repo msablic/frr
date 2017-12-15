@@ -66,7 +66,7 @@ typedef struct {
 	struct in_addr dst_addr;
 	struct in_addr rsp_addr;
 	uint32_t rsp_ttl : 8;
-        uint32_t qry_id : 24;
+	uint32_t qry_id : 24;
 	igmp_mtrace_response_t rsp[0];
 } __attribute__((packed)) igmp_mtrace_t;
 

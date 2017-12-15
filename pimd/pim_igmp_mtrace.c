@@ -48,12 +48,12 @@ static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t m
 		pim_inet4_dump("<group?>", group_addr, group_str, sizeof(group_str));
 		if (sent < 0) {
 			zlog_warn(
-			"Send mtrace request failed due to %s on %s: group=%s msg_size=%zd: errno=%d: %s",
+			"Send mtrace request failed for %s on %s: group=%s msg_size=%zd: errno=%d: %s",
 			dst_str, ifp->name, group_str, mtrace_buf_len, errno, safe_strerror(errno)
 			);
 		} else {
 			zlog_warn(
-				"Send mtrace request failed due to %s on %s: group=%s msg_size=%zd: sent=%zd",
+				"Send mtrace request failed for %s on %s: group=%s msg_size=%zd: sent=%zd",
 				dst_str, ifp->name, group_str, mtrace_buf_len, sent
 			);
 		}
@@ -145,6 +145,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 
 
 	igmp_mtrace_t* mtracep = (igmp_mtrace_t*)igmp_msg;
+
 	recv_checksum = mtracep->checksum;
 
 	mtracep->checksum = 0;
@@ -248,14 +249,6 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 		return -1;
 	}	
 
-	/* checks in order to avoid amplification on reply */
-	if(IPV4_CLASS_DE(ntohl(from.s_addr))) {
-		zlog_warn(
-			"Recv mtrace packet from %s on %s: multicast source %s" ,
-			from_str, ifp->name,  inet_ntoa(from));
-		return -1;
-	}
-	
 	/* 6.2.1 Packet Verification - drop not link-local multicast */
 	if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)) 
 	 	&& !IPV4_MC_LINKLOCAL(ntohl(ip_hdr->ip_dst.s_addr))) {
