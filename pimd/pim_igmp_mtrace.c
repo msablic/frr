@@ -101,7 +101,8 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 	pim_ifp = igmp->interface->info;
 
 
-	/* 6. Router Behaviour
+	/* 
+	 * 6. Router Behaviour
 	 * Check if mtrace packet is addressed elsewhere and forward, if applicable
 	 */
 	if(!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
@@ -133,7 +134,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 		}
 	}
 			
-        ifp = igmp->interface;
+	ifp = igmp->interface;
 
 	if((unsigned)igmp_msg_len < sizeof(igmp_mtrace_t)) {
 		zlog_warn(
@@ -151,7 +152,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 	mtracep->checksum = 0;
 
 	checksum = in_cksum(igmp_msg, igmp_msg_len);
-	
+
 	if(recv_checksum != checksum) {
 		zlog_warn(
 			"Recv mtrace packet from %s on %s: checksum mismatch: received=%x computed=%x",
@@ -185,8 +186,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 
 	fwd_code_t fwd_code = FWD_CODE_NO_ERROR;
 	
-	/* classify mtrace packet */
-	/* check if query */	
+	/* Classify mtrace packet, check if it is a query */	
 	if((unsigned)igmp_msg_len == sizeof(igmp_mtrace_t)) {
 		switch(mtracep->type) {
 		/* wrong type */
