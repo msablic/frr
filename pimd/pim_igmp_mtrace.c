@@ -31,7 +31,7 @@ static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t m
 	ssize_t sent;
 	struct interface *ifp;
 
-        ifp = igmp->interface;
+	ifp = igmp->interface;
 		
 	memset(&to, 0, sizeof(to));
 	to.sin_family = AF_INET;
@@ -168,7 +168,8 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 		char rsp_str[INET_ADDRSTRLEN];
 
 		zlog_debug(
-			"Recv Mtrace packet incoming on %s: hops=%d type=%d size=%d, grp=%s, src=%s, dst=%s rsp=%s ttl=%d id=%d",
+			"Recv Mtrace packet incoming on %s: hops=%d type=%d size=%d, grp=%s, src=%s,"
+			" dst=%s rsp=%s ttl=%d id=%d",
 			inet_ntop(AF_INET,&(pim_ifp->primary_address),inc_str,sizeof(inc_str)),
 			mtracep->hops,
 			mtracep->type,
