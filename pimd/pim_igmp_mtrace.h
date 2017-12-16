@@ -49,9 +49,10 @@ typedef struct {
 	struct in_addr prev_hop; uint32_t in_count; uint32_t out_count; uint32_t total;
 	uint32_t rtg_proto : 8;
 	uint32_t fwd_ttl  : 8;
-	uint32_t mbz : 1;
-	uint32_t s : 1;
+	/* little endian order for next three fields */
 	uint32_t src_mask : 6;
+	uint32_t s : 1;
+	uint32_t mbz : 1;
 	uint32_t fwd_code : 8;
 } __attribute__((packed)) igmp_mtrace_response_t;
 
