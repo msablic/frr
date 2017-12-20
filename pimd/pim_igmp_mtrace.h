@@ -24,7 +24,7 @@
 
 #include "pim_igmp.h"
 
-typedef enum {
+enum mtrace_fwd_code {
 	FWD_CODE_NO_ERROR 	= 0x00,
 	FWD_CODE_WRONG_IF 	= 0x01,
 	FWD_CODE_PRUNE_SENT	= 0x02,
@@ -40,9 +40,9 @@ typedef enum {
 	FWD_CODE_NO_SPACE	= 0x81,
 	FWD_CODE_OLD_ROUTER	= 0x82,
 	FWD_CODE_ADMIN_PROHIB	= 0x83
-} fwd_code_t;
+};
 
-typedef struct {
+struct igmp_mtrace_rsp {
 	uint32_t arrival;
 	struct in_addr incoming;
 	struct in_addr outgoing;
@@ -54,9 +54,9 @@ typedef struct {
 	uint32_t s : 1;
 	uint32_t mbz : 1;
 	uint32_t fwd_code : 8;
-} __attribute__((packed)) igmp_mtrace_response_t;
+} __attribute__((packed));
 
-typedef struct {
+struct igmp_mtrace_qry {
 	uint8_t type;
 	uint8_t hops;
 	uint16_t checksum;
@@ -66,8 +66,8 @@ typedef struct {
 	struct in_addr rsp_addr;
 	uint32_t rsp_ttl : 8;
 	uint32_t qry_id : 24;
-	igmp_mtrace_response_t rsp[0];
-} __attribute__((packed)) igmp_mtrace_t;
+	struct igmp_mtrace_rsp rsp[0];
+} __attribute__((packed));
 
 int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len);

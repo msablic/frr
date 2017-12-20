@@ -136,16 +136,16 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 			
 	ifp = igmp->interface;
 
-	if((unsigned)igmp_msg_len < sizeof(igmp_mtrace_t)) {
+	if((unsigned)igmp_msg_len < sizeof(struct igmp_mtrace_qry)) {
 		zlog_warn(
 			"Recv mtrace packet from %s on %s: too short, len=%d, min=%lu",
 			from_str, ifp->name,
-			igmp_msg_len, sizeof(igmp_mtrace_t));
+			igmp_msg_len, sizeof(struct igmp_mtrace_qry));
 		return -1;
 	}	
 
 
-	igmp_mtrace_t* mtracep = (igmp_mtrace_t*)igmp_msg;
+	struct igmp_mtrace_qry* mtracep = (struct igmp_mtrace_qry*)igmp_msg;
 
 	recv_checksum = mtracep->checksum;
 
@@ -184,10 +184,10 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 			);
 	}
 
-	fwd_code_t fwd_code = FWD_CODE_NO_ERROR;
+	enum mtrace_fwd_code fwd_code = FWD_CODE_NO_ERROR;
 	
 	/* Classify mtrace packet, check if it is a query */	
-	if((unsigned)igmp_msg_len == sizeof(igmp_mtrace_t)) {
+	if((unsigned)igmp_msg_len == sizeof(struct igmp_mtrace_qry)) {
 		switch(mtracep->type) {
 		/* wrong type */
 		case PIM_IGMP_MTRACE_RESPONSE: {
@@ -227,15 +227,15 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 			return -1;
 		}
 	}
-	else if(((igmp_msg_len - sizeof(igmp_mtrace_t))
-			% sizeof(igmp_mtrace_response_t)) == 0) {
+	else if(((igmp_msg_len - sizeof(struct igmp_mtrace_qry))
+			% sizeof(struct igmp_mtrace_rsp)) == 0) {
 		switch(mtracep->type) {
 		case PIM_IGMP_MTRACE_QUERY_REQUEST: {
 
-	        	size_t response_len = igmp_msg_len - sizeof(igmp_mtrace_t);
+	        	size_t response_len = igmp_msg_len - sizeof(struct igmp_mtrace_qry);
 
 			if(response_len != 0)
-				last_rsp_ind = response_len/sizeof(igmp_mtrace_response_t);
+				last_rsp_ind = response_len/sizeof(struct igmp_mtrace_rsp);
 			break;
 		}
 		case PIM_IGMP_MTRACE_RESPONSE:
@@ -280,17 +280,19 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 			zlog_debug("not found neightbour");
 	}
 
-	if(igmp_msg_len == sizeof(igmp_mtrace_t) && nh_addr.s_addr == 0 && fwd_code == FWD_CODE_NO_ERROR) {
+	if(igmp_msg_len == sizeof(struct igmp_mtrace_qry)
+		&& nh_addr.s_addr == 0
+		&& fwd_code == FWD_CODE_NO_ERROR) {
 		fwd_code = FWD_CODE_RPF_IF;
 	}
 
-	size_t mtrace_buf_len = igmp_msg_len + sizeof(igmp_mtrace_response_t);
+	size_t mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
 
 	char mtrace_buf[mtrace_buf_len];
 
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 		
-	igmp_mtrace_t* mtrace_buf_p = (igmp_mtrace_t*)mtrace_buf;
+	struct igmp_mtrace_qry* mtrace_buf_p = (struct igmp_mtrace_qry*)mtrace_buf;
 
 	mtrace_buf_p->checksum = 0;
 
