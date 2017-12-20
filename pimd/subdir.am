@@ -66,8 +66,8 @@ noinst_HEADERS += \
 	pimd/pim_iface.h \
 	pimd/pim_ifchannel.h \
 	pimd/pim_igmp.h \
-	pimd/pim_igmp_mtrace.h \
 	pimd/pim_igmp_join.h \
+	pimd/pim_igmp_mtrace.h \
 	pimd/pim_igmpv2.h \
 	pimd/pim_igmpv3.h \
 	pimd/pim_instance.h \
