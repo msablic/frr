@@ -23,6 +23,23 @@
 #include "pim_util.h"
 #include "pim_igmp_mtrace.h"
 
+/* 5.1 Query Arrival Time */
+static uint32_t query_arrival_time() {
+	struct timeval tv;
+	uint32_t qat;
+
+	if(gettimeofday(&tv,NULL) < 0) {
+		zlog_warn("Query arrival time lookup failed: errno=%d: %s",
+			errno, safe_strerror(errno)
+		);
+		return 0;
+	}
+	/* not sure second offset correct, as I get different value */
+	qat = ((tv.tv_sec + 32384) << 16) + ((tv.tv_usec << 10) / 15625);
+
+	return qat;
+}
+
 static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t mtrace_buf_len,
 				struct in_addr dst_addr, struct in_addr group_addr )
 {
@@ -292,11 +309,13 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 		
-	struct igmp_mtrace_qry* mtrace_buf_p = (struct igmp_mtrace_qry*)mtrace_buf;
+	struct igmp_mtrace_qry* mtrace_p = (struct igmp_mtrace_qry*)mtrace_buf;
 
-	mtrace_buf_p->checksum = 0;
+	mtrace_p->rsp[last_rsp_ind].arrival = query_arrival_time();
 
-	mtrace_buf_p->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
+	mtrace_p->checksum = 0;
+
+	mtrace_p->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
 	
 	struct igmp_sock *igmp_out = get_primary_igmp_sock(nexthop.interface->info);
 
