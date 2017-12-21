@@ -52,7 +52,10 @@ struct igmp_mtrace_rsp {
 	uint32_t arrival;
 	struct in_addr incoming;
 	struct in_addr outgoing;
-	struct in_addr prev_hop; uint32_t in_count; uint32_t out_count; uint32_t total;
+	struct in_addr prev_hop;
+	uint32_t in_count;
+	uint32_t out_count;
+	uint32_t total;
 	uint32_t rtg_proto : 8;
 	uint32_t fwd_ttl  : 8;
 	/* little endian order for next three fields */
