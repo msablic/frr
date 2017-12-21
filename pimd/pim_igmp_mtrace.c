@@ -276,6 +276,8 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 		return -1;
 	}
 
+	nh_addr.s_addr = 0;
+	
 	ret = pim_nexthop_lookup(pim_ifp->pim, &nexthop, mtracep->src_addr, 1);
 
 	if(ret == 0) {
@@ -294,7 +296,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 	}
 	else {
 		if (PIM_DEBUG_IGMP_PACKETS)
-			zlog_debug("not found neightbour");
+			zlog_debug("not found neighbor");
 	}
 
 	if(igmp_msg_len == sizeof(struct igmp_mtrace_qry)
