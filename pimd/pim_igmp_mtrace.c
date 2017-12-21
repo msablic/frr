@@ -313,7 +313,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 		
 	struct igmp_mtrace_qry* mtrace_p = (struct igmp_mtrace_qry*)mtrace_buf;
 
-	mtrace_p->rsp[last_rsp_ind].arrival = query_arrival_time();
+	mtrace_p->rsp[last_rsp_ind].arrival = htonl(query_arrival_time());
 
 	mtrace_p->checksum = 0;
 
