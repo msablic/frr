@@ -30,6 +30,8 @@
 #define PIM_IGMP_MTRACE 0
 #endif
 
+#define MTRACE_UNKNOWN_COUNT	(0xffffffff)
+
 enum mtrace_fwd_code {
 	FWD_CODE_NO_ERROR 	= 0x00,
 	FWD_CODE_WRONG_IF 	= 0x01,
@@ -46,6 +48,20 @@ enum mtrace_fwd_code {
 	FWD_CODE_NO_SPACE	= 0x81,
 	FWD_CODE_OLD_ROUTER	= 0x82,
 	FWD_CODE_ADMIN_PROHIB	= 0x83
+};
+
+enum mtrace_rtg_proto {
+	RTG_PROTO_DVMRP		= 0x01,
+	RTG_PROTO_MOSPF		= 0x02,
+	RTG_PROTO_PIM		= 0x03,
+	RTG_PROTO_CBT		= 0x04,
+	RTG_PROTO_PIM_SPECIAL	= 0x05,
+	RTG_PROTO_PIM_STATIC	= 0x06,
+	RTG_PROTO_DVMRP_STATIC 	= 0x07,
+	RTG_PROTO_PIM_MBGP	= 0x08,
+	RTG_PROTO_CBT_SPECIAL	= 0x09,
+	RTG_PROTO_CBT_STATIC	= 0x10,
+	RTG_PROTO_PIM_ASSERT	= 0x11
 };
 
 struct igmp_mtrace_rsp {

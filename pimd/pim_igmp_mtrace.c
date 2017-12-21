@@ -276,17 +276,36 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 		return -1;
 	}
 
+	/* 6.2.2. Normal Processing */
+
+	/* allocate mtrace request buffer */
+	size_t mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
+
+	char mtrace_buf[mtrace_buf_len];
+
+	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
+
+	struct igmp_mtrace_qry* mtrace_p = (struct igmp_mtrace_qry*)mtrace_buf;
+
+	/* 6.2.2. 1. */
+
+	mtrace_p->rsp[last_rsp_ind].arrival = htonl(query_arrival_time());
+	mtrace_p->rsp[last_rsp_ind].outgoing.s_addr = pim_ifp->primary_address.s_addr;
+	mtrace_p->rsp[last_rsp_ind].out_count = htonl(MTRACE_UNKNOWN_COUNT);
+
+	/* 6.2.2. 2. Attempt to determine forwarding information */
+
 	nh_addr.s_addr = 0;
 	
 	ret = pim_nexthop_lookup(pim_ifp->pim, &nexthop, mtracep->src_addr, 1);
 
 	if(ret == 0) {
 		if (PIM_DEBUG_IGMP_PACKETS)
-			zlog_debug("pim_nexthop_lookup OK");
+			zlog_debug("mtrace pim_nexthop_lookup OK");
 
 		char nexthop_str[INET_ADDRSTRLEN];
 
-		zlog_warn("next_hop=%s",
+		zlog_warn("mtrace next_hop=%s",
 			inet_ntop(nexthop.mrib_nexthop_addr.family,
 				&nexthop.mrib_nexthop_addr.u.prefix, nexthop_str,sizeof(nexthop_str))
 		);
@@ -296,32 +315,28 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 	}
 	else {
 		if (PIM_DEBUG_IGMP_PACKETS)
-			zlog_debug("not found neighbor");
+			zlog_debug("mtrace not found neighbor");
 	}
 
-	if(igmp_msg_len == sizeof(struct igmp_mtrace_qry)
-		&& nh_addr.s_addr == 0
-		&& fwd_code == FWD_CODE_NO_ERROR) {
-		fwd_code = FWD_CODE_RPF_IF;
-	}
+	/* 6.2.2. 3. NO_ROUTE */
+	if (nh_addr.s_addr == 0) {
+		if(!fwd_code)
+			fwd_code = FWD_CODE_NO_ROUTE;
+	}	
 
-	size_t mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
-
-	char mtrace_buf[mtrace_buf_len];
-
-	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
-		
-	struct igmp_mtrace_qry* mtrace_p = (struct igmp_mtrace_qry*)mtrace_buf;
-
-	mtrace_p->rsp[last_rsp_ind].arrival = htonl(query_arrival_time());
+	struct igmp_sock *igmp_out = get_primary_igmp_sock(nexthop.interface->info);
+	
+	mtrace_p->rsp[last_rsp_ind].incoming.s_addr = igmp_out->ifaddr.s_addr;
+	mtrace_p->rsp[last_rsp_ind].prev_hop.s_addr = nh_addr.s_addr;
+	mtrace_p->rsp[last_rsp_ind].in_count = htonl(MTRACE_UNKNOWN_COUNT);
+	mtrace_p->rsp[last_rsp_ind].total = htonl(MTRACE_UNKNOWN_COUNT);
+	mtrace_p->rsp[last_rsp_ind].rtg_proto = RTG_PROTO_PIM; 
+	mtrace_p->rsp[last_rsp_ind].s = 1; 
+	mtrace_p->rsp[last_rsp_ind].src_mask = 32; 
 
 	mtrace_p->checksum = 0;
 
 	mtrace_p->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
 	
-	struct igmp_sock *igmp_out = get_primary_igmp_sock(nexthop.interface->info);
-
 	return mtrace_send_packet(igmp_out, mtrace_buf,mtrace_buf_len,nh_addr,mtracep->grp_addr);
 }
-
-
