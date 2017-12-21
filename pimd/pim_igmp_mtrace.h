@@ -24,6 +24,12 @@
 
 #include "pim_igmp.h"
 
+#ifdef DEV_BUILD
+#define PIM_IGMP_MTRACE 1
+#else
+#define PIM_IGMP_MTRACE 0
+#endif
+
 enum mtrace_fwd_code {
 	FWD_CODE_NO_ERROR 	= 0x00,
 	FWD_CODE_WRONG_IF 	= 0x01,
