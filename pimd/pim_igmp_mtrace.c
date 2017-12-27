@@ -285,13 +285,13 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 
-	struct igmp_mtrace* mtrace_p = (struct igmp_mtrace*)mtrace_buf;
+	struct igmp_mtrace* mtracerp = (struct igmp_mtrace*)mtrace_buf;
 
 	/* 6.2.2. 1. */
 
-	mtrace_p->rsp[last_rsp_ind].arrival = htonl(query_arrival_time());
-	mtrace_p->rsp[last_rsp_ind].outgoing.s_addr = pim_ifp->primary_address.s_addr;
-	mtrace_p->rsp[last_rsp_ind].out_count = htonl(MTRACE_UNKNOWN_COUNT);
+	mtracerp->rsp[last_rsp_ind].arrival = htonl(query_arrival_time());
+	mtracerp->rsp[last_rsp_ind].outgoing.s_addr = pim_ifp->primary_address.s_addr;
+	mtracerp->rsp[last_rsp_ind].out_count = htonl(MTRACE_UNKNOWN_COUNT);
 
 	/* 6.2.2. 2. Attempt to determine forwarding information */
 
@@ -326,17 +326,17 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 
 	struct igmp_sock *igmp_out = get_primary_igmp_sock(nexthop.interface->info);
 	
-	mtrace_p->rsp[last_rsp_ind].incoming.s_addr = igmp_out->ifaddr.s_addr;
-	mtrace_p->rsp[last_rsp_ind].prev_hop.s_addr = nh_addr.s_addr;
-	mtrace_p->rsp[last_rsp_ind].in_count = htonl(MTRACE_UNKNOWN_COUNT);
-	mtrace_p->rsp[last_rsp_ind].total = htonl(MTRACE_UNKNOWN_COUNT);
-	mtrace_p->rsp[last_rsp_ind].rtg_proto = RTG_PROTO_PIM; 
-	mtrace_p->rsp[last_rsp_ind].s = 1; 
-	mtrace_p->rsp[last_rsp_ind].src_mask = 32; 
+	mtracerp->rsp[last_rsp_ind].incoming.s_addr = igmp_out->ifaddr.s_addr;
+	mtracerp->rsp[last_rsp_ind].prev_hop.s_addr = nh_addr.s_addr;
+	mtracerp->rsp[last_rsp_ind].in_count = htonl(MTRACE_UNKNOWN_COUNT);
+	mtracerp->rsp[last_rsp_ind].total = htonl(MTRACE_UNKNOWN_COUNT);
+	mtracerp->rsp[last_rsp_ind].rtg_proto = RTG_PROTO_PIM; 
+	mtracerp->rsp[last_rsp_ind].s = 1; 
+	mtracerp->rsp[last_rsp_ind].src_mask = 32; 
 
-	mtrace_p->checksum = 0;
+	mtracerp->checksum = 0;
 
-	mtrace_p->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
+	mtracerp->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
 	
 	return mtrace_send_packet(igmp_out, mtrace_buf,mtrace_buf_len,nh_addr,mtracep->grp_addr);
 }
