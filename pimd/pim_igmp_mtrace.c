@@ -153,16 +153,16 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 			
 	ifp = igmp->interface;
 
-	if((unsigned)igmp_msg_len < sizeof(struct igmp_mtrace_qry)) {
+	if((unsigned)igmp_msg_len < sizeof(struct igmp_mtrace)) {
 		zlog_warn(
 			"Recv mtrace packet from %s on %s: too short, len=%d, min=%lu",
 			from_str, ifp->name,
-			igmp_msg_len, sizeof(struct igmp_mtrace_qry));
+			igmp_msg_len, sizeof(struct igmp_mtrace));
 		return -1;
 	}	
 
 
-	struct igmp_mtrace_qry* mtracep = (struct igmp_mtrace_qry*)igmp_msg;
+	struct igmp_mtrace* mtracep = (struct igmp_mtrace*)igmp_msg;
 
 	recv_checksum = mtracep->checksum;
 
@@ -204,7 +204,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 	enum mtrace_fwd_code fwd_code = FWD_CODE_NO_ERROR;
 	
 	/* Classify mtrace packet, check if it is a query */	
-	if((unsigned)igmp_msg_len == sizeof(struct igmp_mtrace_qry)) {
+	if((unsigned)igmp_msg_len == sizeof(struct igmp_mtrace)) {
 		switch(mtracep->type) {
 		/* wrong type */
 		case PIM_IGMP_MTRACE_RESPONSE: {
@@ -244,12 +244,12 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 			return -1;
 		}
 	}
-	else if(((igmp_msg_len - sizeof(struct igmp_mtrace_qry))
+	else if(((igmp_msg_len - sizeof(struct igmp_mtrace))
 			% sizeof(struct igmp_mtrace_rsp)) == 0) {
 		switch(mtracep->type) {
 		case PIM_IGMP_MTRACE_QUERY_REQUEST: {
 
-	        	size_t response_len = igmp_msg_len - sizeof(struct igmp_mtrace_qry);
+	        	size_t response_len = igmp_msg_len - sizeof(struct igmp_mtrace);
 
 			if(response_len != 0)
 				last_rsp_ind = response_len/sizeof(struct igmp_mtrace_rsp);
@@ -285,7 +285,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 
-	struct igmp_mtrace_qry* mtrace_p = (struct igmp_mtrace_qry*)mtrace_buf;
+	struct igmp_mtrace* mtrace_p = (struct igmp_mtrace*)mtrace_buf;
 
 	/* 6.2.2. 1. */
 

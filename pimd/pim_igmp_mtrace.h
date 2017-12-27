@@ -81,7 +81,7 @@ struct igmp_mtrace_rsp {
 	uint32_t fwd_code : 8;
 } __attribute__((packed));
 
-struct igmp_mtrace_qry {
+struct igmp_mtrace {
 	uint8_t type;
 	uint8_t hops;
 	uint16_t checksum;
