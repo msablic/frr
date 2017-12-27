@@ -24,7 +24,8 @@
 #include "pim_igmp_mtrace.h"
 
 /* 5.1 Query Arrival Time */
-static uint32_t query_arrival_time() {
+static uint32_t query_arrival_time()
+{
 	struct timeval tv;
 	uint32_t qat;
 
