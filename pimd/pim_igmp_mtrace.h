@@ -51,17 +51,17 @@ enum mtrace_fwd_code {
 };
 
 enum mtrace_rtg_proto {
-	RTG_PROTO_DVMRP		= 0x01,
-	RTG_PROTO_MOSPF		= 0x02,
-	RTG_PROTO_PIM		= 0x03,
-	RTG_PROTO_CBT		= 0x04,
-	RTG_PROTO_PIM_SPECIAL	= 0x05,
-	RTG_PROTO_PIM_STATIC	= 0x06,
-	RTG_PROTO_DVMRP_STATIC 	= 0x07,
-	RTG_PROTO_PIM_MBGP	= 0x08,
-	RTG_PROTO_CBT_SPECIAL	= 0x09,
-	RTG_PROTO_CBT_STATIC	= 0x10,
-	RTG_PROTO_PIM_ASSERT	= 0x11
+	RTG_PROTO_DVMRP		= 1,
+	RTG_PROTO_MOSPF		= 2,
+	RTG_PROTO_PIM		= 3,
+	RTG_PROTO_CBT		= 4,
+	RTG_PROTO_PIM_SPECIAL	= 5,
+	RTG_PROTO_PIM_STATIC	= 6,
+	RTG_PROTO_DVMRP_STATIC 	= 7,
+	RTG_PROTO_PIM_MBGP	= 8,
+	RTG_PROTO_CBT_SPECIAL	= 9,
+	RTG_PROTO_CBT_STATIC	= 10,
+	RTG_PROTO_PIM_ASSERT	= 11,
 };
 
 struct igmp_mtrace_rsp {
@@ -95,6 +95,9 @@ struct igmp_mtrace {
 } __attribute__((packed));
 
 int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
+			const char *from_str, char *igmp_msg, int igmp_msg_len);
+
+int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len);
 
 #endif /* PIM_IGMP_MTRACE_H */
