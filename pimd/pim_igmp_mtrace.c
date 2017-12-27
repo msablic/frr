@@ -219,7 +219,7 @@ int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in
 				zlog_debug("Received IGMP multicast traceroute query");
 
 			/* 6.1.1  Packet verification */
-			if(!pim_if_connected_to_source(ifp, from)) {
+			if(!pim_if_connected_to_source(ifp, mtracep->dst_addr)) {
 				if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))  {
 					if (PIM_DEBUG_IGMP_PACKETS)
 						zlog_debug("Dropping multicast query on wrong interface");
