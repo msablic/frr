@@ -172,12 +172,36 @@ static struct igmp_sock *get_primary_igmp_sock(struct pim_interface *pim_ifp)
 }
 
 /* 6.5 Sending Traceroute Responses */
-static int mtrace_send_response(struct igmp_sock *igmp, struct igmp_mtrace *mtracep, size_t mtrace_len)
+static int mtrace_send_response(struct pim_instance *pim, struct igmp_mtrace *mtracep, size_t mtrace_len)
 {
+	struct pim_nexthop nexthop;
+	int ret;
+	struct igmp_sock *igmp;
+	char rsp_str[INET_ADDRSTRLEN];
+	char igmp_str[INET_ADDRSTRLEN];
+
+	/* TODO: should use unicast rib lookup */
+	ret = pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1);
+
+	if(ret != 0) {
+		zlog_warn("Dropped response qid=%ud, no route to response address",
+			mtracep->qry_id
+		);
+		return -1;
+	}
+
+	igmp = get_primary_igmp_sock(nexthop.interface->info);
+
 	mtracep->type = PIM_IGMP_MTRACE_RESPONSE;
 
 	mtracep->checksum = 0;
 	mtracep->checksum = in_cksum((char*)mtracep,mtrace_len);
+
+	if (PIM_DEBUG_IGMP_PACKETS)
+		zlog_debug("Sending mtrace response to %s on %s",
+			inet_ntop(AF_INET, &mtracep->rsp_addr, rsp_str,sizeof(rsp_str)),
+			inet_ntop(AF_INET, &igmp->ifaddr, igmp_str,sizeof(igmp_str))
+		);
 
 	return mtrace_send_packet(igmp,(char*)mtracep,mtrace_len,mtracep->rsp_addr,mtracep->grp_addr);
 }
@@ -358,7 +382,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 		else
 			mtracerp->rsp[last_rsp_ind].fwd_code = fwd_code;
 		/* 6.5 Sending Traceroute Responses */
-		return mtrace_send_response(igmp,mtracerp,mtrace_buf_len);
+		return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
 	}
 
 	/* 6.2.2. 3. NO_ROUTE */
