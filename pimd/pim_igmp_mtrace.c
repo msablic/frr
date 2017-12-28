@@ -182,7 +182,7 @@ static int mtrace_send_response(struct igmp_sock *igmp, struct igmp_mtrace *mtra
 	return mtrace_send_packet(igmp,(char*)mtracep,mtrace_len,mtracep->rsp_addr,mtracep->grp_addr);
 }
 
-int igmp_mtrace_recv_packet(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
+int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t query_id = 0, query_src = 0;
