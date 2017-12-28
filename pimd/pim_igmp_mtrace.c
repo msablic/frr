@@ -387,6 +387,11 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 
 	/* 6.2.2. 3. NO_ROUTE */
 	if (nh_addr.s_addr == 0) {
+		/* reached source? */
+		if(pim_if_connected_to_source(ifp, mtracep->src_addr)) {
+			/* TODO: fill in routing information */
+			return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
+		}
 		if(!fwd_code)
 			fwd_code = FWD_CODE_NO_ROUTE;
 	}	
