@@ -385,16 +385,6 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 		return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
 	}
 
-	/* 6.2.2. 3. NO_ROUTE */
-	if (nh_addr.s_addr == 0) {
-		/* reached source? */
-		if(pim_if_connected_to_source(nexthop.interface, mtracep->src_addr)) {
-			/* TODO: fill in routing information */
-			return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
-		}
-		if(!fwd_code)
-			fwd_code = FWD_CODE_NO_ROUTE;
-	}	
 
 	struct igmp_sock *igmp_out = get_primary_igmp_sock(nexthop.interface->info);
 	
@@ -405,6 +395,17 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 	mtracerp->rsp[last_rsp_ind].rtg_proto = RTG_PROTO_PIM; 
 	mtracerp->rsp[last_rsp_ind].s = 1; 
 	mtracerp->rsp[last_rsp_ind].src_mask = 32; 
+
+	if (nh_addr.s_addr == 0) {
+		/* reached source? */
+		if(pim_if_connected_to_source(nexthop.interface, mtracep->src_addr)) {
+			return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
+		}
+		else {
+			/* 6.4 Forwarding Traceroute Requests: Previous-hop router not known */
+			inet_aton(MCAST_ALL_ROUTERS,&nh_addr);
+		}
+	}	
 
 	mtracerp->checksum = 0;
 
