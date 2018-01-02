@@ -250,7 +250,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 		}
 
 		if(forward) {
-			/* forwarding code here */
+			/* TODO: forwarding code here */
 			zlog_warn("Unicast addressed mtrace packet dropped");
 			return -1;
 		}
@@ -425,6 +425,8 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr, struct 
 
 	if (PIM_DEBUG_IGMP_PACKETS)
 		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
+
+	/* TODO: forward or receive responses */
 
 	return -1;
 }
