@@ -95,9 +95,9 @@ struct igmp_mtrace {
 } __attribute__((packed));
 
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
-			const char *from_str, char *igmp_msg, int igmp_msg_len);
+			     const char *from_str, char *igmp_msg, int igmp_msg_len);
 
 int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
-			const char *from_str, char *igmp_msg, int igmp_msg_len);
+			      const char *from_str, char *igmp_msg, int igmp_msg_len);
 
 #endif /* PIM_IGMP_MTRACE_H */

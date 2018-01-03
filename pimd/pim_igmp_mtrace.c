@@ -111,7 +111,7 @@ static uint32_t query_arrival_time()
 }
 
 static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t mtrace_buf_len,
-				struct in_addr dst_addr, struct in_addr group_addr )
+			      struct in_addr dst_addr, struct in_addr group_addr )
 {
 	struct sockaddr_in to;
 	socklen_t tolen;
@@ -207,7 +207,7 @@ static int mtrace_send_response(struct pim_instance *pim, struct igmp_mtrace *mt
 }
 
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
-			const char *from_str, char *igmp_msg, int igmp_msg_len)
+			     const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t query_id = 0, query_src = 0;
 	int forward = 1;
@@ -415,7 +415,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 }
 
 int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
-			const char *from_str, char *igmp_msg, int igmp_msg_len)
+			      const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	struct pim_interface *pim_ifp;
 
