@@ -110,6 +110,7 @@ static uint32_t query_arrival_time()
 	return qat;
 }
 
+/* TODO: TTL setting option */
 static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t mtrace_buf_len,
 			      struct in_addr dst_addr, struct in_addr group_addr )
 {
@@ -417,16 +418,55 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			      const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
+	static uint32_t qry_id = 0;
+	struct interface *ifp;
 	struct pim_interface *pim_ifp;
+	struct igmp_mtrace *mtracep;
+	struct pim_nexthop nexthop;
+	int ret;
+	uint16_t recv_checksum;
+	uint16_t checksum;
+	struct igmp_sock *igmp_out;
+
+	ifp = igmp->interface;
 
 	pim_ifp = igmp->interface->info;
 
-	struct igmp_mtrace* mtracep = (struct igmp_mtrace*)igmp_msg;
+	mtracep = (struct igmp_mtrace*)igmp_msg;
+
+	recv_checksum = mtracep->checksum;
+
+	mtracep->checksum = 0;
+
+	checksum = in_cksum(igmp_msg, igmp_msg_len);
+
+	if(recv_checksum != checksum) {
+		zlog_warn(
+			"Recv mtrace response from %s on %s: checksum mismatch: received=%x computed=%x",
+			from_str, ifp->name, recv_checksum,
+			checksum);
+		return -1;
+	}
+
+	mtracep->checksum = checksum;
 
 	if (PIM_DEBUG_IGMP_PACKETS)
 		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
 
-	/* TODO: forward or receive responses */
+	/* Drop duplicate packets */
+	if(qry_id == mtracep->qry_id)
+		return -1;
 
-	return -1;
+	qry_id = mtracep->qry_id;
+
+	ret = pim_nexthop_lookup(pim_ifp->pim, &nexthop, ip_hdr->ip_dst, 0);
+
+	if(ret != 0) {
+		zlog_warn("Dropping mtrace response, no route to destination");
+		return -1;
+	}
+
+	igmp_out = get_primary_igmp_sock(nexthop.interface->info);
+
+	return mtrace_send_packet(igmp_out,igmp_msg,igmp_msg_len,ip_hdr->ip_dst,mtracep->grp_addr);
 }
