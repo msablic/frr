@@ -110,7 +110,6 @@ static uint32_t query_arrival_time()
 	return qat;
 }
 
-/* TODO: TTL setting option */
 static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t mtrace_buf_len,
 			      struct in_addr dst_addr, struct in_addr group_addr )
 {
