@@ -279,7 +279,7 @@ static int mtrace_send_response(struct pim_instance *pim, struct igmp_mtrace *mt
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			     const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
-	static uint32_t query_id = 0, query_src = 0;
+	static uint32_t qry_id = 0, qry_src = 0;
 	int forward = 1;
 	struct interface *ifp;
 	uint16_t recv_checksum;
@@ -371,13 +371,13 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 			/* Unicast query on wrong interface */
 			fwd_code = FWD_CODE_WRONG_IF;
 		}
-		if(query_id == mtracep->qry_id && query_src == from.s_addr) {
+		if(qry_id == mtracep->qry_id && qry_src == from.s_addr) {
 			if (PIM_DEBUG_IGMP_PACKETS)
 				zlog_debug("Dropping multicast query with duplicate source and id");
 			return -1;
 		}
-		query_id = mtracep->qry_id;
-		query_src = from.s_addr;
+		qry_id = mtracep->qry_id;
+		qry_src = from.s_addr;
 	}
 	else if(((igmp_msg_len - sizeof(struct igmp_mtrace))
 			% sizeof(struct igmp_mtrace_rsp)) == 0) {
