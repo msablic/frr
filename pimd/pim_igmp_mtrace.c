@@ -473,7 +473,11 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 			/* 6.4 Forwarding Traceroute Requests: Previous-hop router not known */
 			inet_aton(MCAST_ALL_ROUTERS,&nh_addr);
 		}
-	}	
+	}
+
+	if(mtracep->hops == (last_rsp_ind+1)) {
+		return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
+	}
 
 	mtracerp->checksum = 0;
 
