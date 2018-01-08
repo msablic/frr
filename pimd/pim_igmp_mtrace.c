@@ -475,7 +475,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 		}
 	}
 
-	if(mtracep->hops == (last_rsp_ind+1)) {
+	if(mtracep->hops <= (last_rsp_ind+1)) {
 		return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
 	}
 
