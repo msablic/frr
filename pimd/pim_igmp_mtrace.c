@@ -250,6 +250,11 @@ static int mtrace_send_response(struct pim_instance *pim, struct igmp_mtrace *mt
 	char rsp_str[INET_ADDRSTRLEN];
 	char igmp_str[INET_ADDRSTRLEN];
 
+	if(IPV4_CLASS_DE(ntohl(mtracep->rsp_addr.s_addr))) {
+		zlog_warn("Multicast mtrace responses not implemented");
+		return -1;
+	}
+
 	/* TODO: should use unicast rib lookup */
 	ret = pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1);
 
@@ -492,6 +497,11 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr, struct 
 	struct igmp_mtrace *mtracep;
 	uint16_t recv_checksum;
 	uint16_t checksum;
+
+	if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
+		zlog_warn("Multicast mtrace responses not implemented");
+		return -1;
+	}
 
 	ifp = igmp->interface;
 
