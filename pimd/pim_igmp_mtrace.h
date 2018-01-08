@@ -30,6 +30,7 @@
 #define PIM_IGMP_MTRACE 0
 #endif
 
+#define MTRACE_MAX_HOPS		(255)
 #define MTRACE_UNKNOWN_COUNT	(0xffffffff)
 
 enum mtrace_fwd_code {
@@ -93,6 +94,9 @@ struct igmp_mtrace {
 	uint32_t qry_id : 24;
 	struct igmp_mtrace_rsp rsp[0];
 } __attribute__((packed));
+
+#define MTRACE_HEADER_SIZE	(sizeof(struct igmp_mtrace))
+#define MTRACE_RESPONSE_SIZE	(sizeof(struct igmp_mtrace_rsp))
 
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			     const char *from_str, char *igmp_msg, int igmp_msg_len);

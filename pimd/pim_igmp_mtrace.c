@@ -285,6 +285,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 			     const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t qry_id = 0, qry_src = 0;
+	char mtrace_buf[MTRACE_HEADER_SIZE+MTRACE_MAX_HOPS*MTRACE_RESPONSE_SIZE];
 	struct pim_nexthop nexthop;
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -391,6 +392,10 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 
 		if(response_len != 0)
 			last_rsp_ind = response_len/sizeof(struct igmp_mtrace_rsp);
+		if(last_rsp_ind > MTRACE_MAX_HOPS) {
+			zlog_warn("Mtrace request of excessive size");
+			return -1;
+		}
 	}
 	else {
 		zlog_warn(
@@ -410,18 +415,21 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 
 	/* 6.2.2. Normal Processing */
 
+	/* 6.2.2. 1. */
+
+	if(last_rsp_ind == MTRACE_MAX_HOPS) {
+		mtracep->rsp[MTRACE_MAX_HOPS-1].fwd_code = FWD_CODE_NO_SPACE;
+		return mtrace_send_response(pim_ifp->pim,mtracep,igmp_msg_len);
+	}
+
 	/* allocate mtrace request buffer */
 	mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
-
-	char mtrace_buf[mtrace_buf_len];
 
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 
 	mtracerp = (struct igmp_mtrace*)mtrace_buf;
 
 	mtrace_rsp_init(&mtracerp->rsp[last_rsp_ind]);
-
-	/* 6.2.2. 1. */
 
 	mtracerp->rsp[last_rsp_ind].arrival = htonl(query_arrival_time());
 	mtracerp->rsp[last_rsp_ind].outgoing.s_addr = pim_ifp->primary_address.s_addr;
