@@ -115,9 +115,9 @@ static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf, size_t m
 			      struct in_addr dst_addr, struct in_addr group_addr )
 {
 	struct sockaddr_in to;
+	struct interface *ifp;
 	socklen_t tolen;
 	ssize_t sent;
-	struct interface *ifp;
 
 	ifp = igmp->interface;
 		
@@ -174,14 +174,14 @@ static struct igmp_sock *get_primary_igmp_sock(struct pim_interface *pim_ifp)
 
 static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 {
-	uint16_t checksum;
-	int ret;
 	struct pim_nexthop nexthop;
-	struct igmp_sock *igmp_out;
-	int fd;
 	struct sockaddr_in to;
+	struct igmp_sock *igmp_out;
 	socklen_t tolen;
+	int ret;
+	int fd;
 	int sent;
+	uint16_t checksum;
 
 	checksum = ip_hdr->ip_sum;
 
@@ -245,10 +245,10 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 static int mtrace_send_response(struct pim_instance *pim, struct igmp_mtrace *mtracep, size_t mtrace_len)
 {
 	struct pim_nexthop nexthop;
-	int ret;
 	struct igmp_sock *igmp;
-	char rsp_str[INET_ADDRSTRLEN];
+	int ret;
 	char igmp_str[INET_ADDRSTRLEN];
+	char rsp_str[INET_ADDRSTRLEN];
 
 	if(IPV4_CLASS_DE(ntohl(mtracep->rsp_addr.s_addr))) {
 		zlog_warn("Multicast mtrace responses not implemented");
@@ -285,16 +285,21 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 			     const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	static uint32_t qry_id = 0, qry_src = 0;
-	int forward = 1;
+	struct pim_nexthop nexthop;
 	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	struct igmp_mtrace* mtracep;
+	struct igmp_mtrace* mtracerp;
+	struct in_addr nh_addr;
+	enum mtrace_fwd_code fwd_code = FWD_CODE_NO_ERROR;
+	int forward = 1;
+	int ret;
+	size_t response_len;
+	int last_rsp_ind = 0;
+	size_t mtrace_buf_len;
 	uint16_t recv_checksum;
 	uint16_t checksum;
-	struct pim_interface *pim_ifp;
-	struct pim_nexthop nexthop;
-	struct in_addr nh_addr;
-	int ret;
-	int last_rsp_ind = 0;
-	
+
 	pim_ifp = igmp->interface->info;
 
 	/* 
@@ -338,7 +343,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 		return -1;
 	}
 
-	struct igmp_mtrace* mtracep = (struct igmp_mtrace*)igmp_msg;
+	mtracep = (struct igmp_mtrace*)igmp_msg;
 
 	recv_checksum = mtracep->checksum;
 
@@ -357,8 +362,6 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 	if (PIM_DEBUG_IGMP_PACKETS)
 		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
 
-	enum mtrace_fwd_code fwd_code = FWD_CODE_NO_ERROR;
-	
 	/* Classify mtrace packet, check if it is a query */	
 	if((unsigned)igmp_msg_len == sizeof(struct igmp_mtrace)) {
 		if (PIM_DEBUG_IGMP_PACKETS)
@@ -384,7 +387,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 	}
 	else if(((igmp_msg_len - sizeof(struct igmp_mtrace))
 			% sizeof(struct igmp_mtrace_rsp)) == 0) {
-		size_t response_len = igmp_msg_len - sizeof(struct igmp_mtrace);
+		response_len = igmp_msg_len - sizeof(struct igmp_mtrace);
 
 		if(response_len != 0)
 			last_rsp_ind = response_len/sizeof(struct igmp_mtrace_rsp);
@@ -408,13 +411,13 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 	/* 6.2.2. Normal Processing */
 
 	/* allocate mtrace request buffer */
-	size_t mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
+	mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
 
 	char mtrace_buf[mtrace_buf_len];
 
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 
-	struct igmp_mtrace* mtracerp = (struct igmp_mtrace*)mtrace_buf;
+	mtracerp = (struct igmp_mtrace*)mtrace_buf;
 
 	mtrace_rsp_init(&mtracerp->rsp[last_rsp_ind]);
 
