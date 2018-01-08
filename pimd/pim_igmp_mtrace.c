@@ -292,7 +292,6 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 	
 	pim_ifp = igmp->interface->info;
 
-
 	/* 
 	 * 6. Router Behaviour
 	 * Check if mtrace packet is addressed elsewhere and forward, if applicable
@@ -332,8 +331,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 			from_str, ifp->name,
 			igmp_msg_len, sizeof(struct igmp_mtrace));
 		return -1;
-	}	
-
+	}
 
 	struct igmp_mtrace* mtracep = (struct igmp_mtrace*)igmp_msg;
 
@@ -391,7 +389,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 			"Recv mtrace packet from %s on %s: invalid length %d" ,
 			from_str, ifp->name,  igmp_msg_len);
 		return -1;
-	}	
+	}
 
 	/* 6.2.1 Packet Verification - drop not link-local multicast */
 	if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)) 
@@ -452,7 +450,6 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct i
 		/* 6.5 Sending Traceroute Responses */
 		return mtrace_send_response(pim_ifp->pim,mtracerp,mtrace_buf_len);
 	}
-
 
 	struct igmp_sock *igmp_out = get_primary_igmp_sock(nexthop.interface->info);
 	
