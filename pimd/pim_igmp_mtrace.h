@@ -95,8 +95,8 @@ struct igmp_mtrace {
 	struct igmp_mtrace_rsp rsp[0];
 } __attribute__((packed));
 
-#define MTRACE_HEADER_SIZE	(sizeof(struct igmp_mtrace))
-#define MTRACE_RESPONSE_SIZE	(sizeof(struct igmp_mtrace_rsp))
+#define MTRACE_HDR_SIZE	(sizeof(struct igmp_mtrace))
+#define MTRACE_RSP_SIZE	(sizeof(struct igmp_mtrace_rsp))
 
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr, struct in_addr from,
 			     const char *from_str, char *igmp_msg, int igmp_msg_len);
