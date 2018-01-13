@@ -217,17 +217,17 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 		return -1;
 	}
 
-	igmp_out = get_primary_igmp_sock(nexthop.interface->info);
-
-	if(igmp_out == NULL)
-		return -1;
-
 	fd = pim_socket_raw(IPPROTO_RAW);
 
 	if(fd < 0)
 		return -1;
 
 	pim_socket_ip_hdr(fd);
+
+	igmp_out = get_primary_igmp_sock(nexthop.interface->info);
+
+	if(igmp_out == NULL)
+		return -1;
 
 	ret = pim_socket_bind(fd,igmp_out->interface);
 
