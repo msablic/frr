@@ -241,8 +241,6 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 	to.sin_addr = ip_hdr->ip_dst;
 	tolen = sizeof(to);
 
-	zlog_warn("Address is %s",inet_ntoa(ip_hdr->ip_dst));
-
 	sent = sendto(fd,ip_hdr,ntohs(ip_hdr->ip_len),0,
 			(struct sockaddr *)&to,tolen);
 
