@@ -642,7 +642,8 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	if(recv_checksum != checksum) {
 		zlog_warn(
-			"Recv mtrace response from %s on %s: checksum mismatch:"			" received=%x computed=%x",
+			"Recv mtrace response from %s on %s: checksum mismatch:"
+			" received=%x computed=%x",
 			from_str, ifp->name, recv_checksum,
 			checksum);
 		return -1;
