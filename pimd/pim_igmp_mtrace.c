@@ -128,8 +128,11 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 	struct interface *ifp;
 	socklen_t tolen;
 	ssize_t sent;
+	int ret;
+	socklen_t ttl_len;
 	char igmp_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
+	u_char ttl, sttl;
 
 	ifp = igmp->interface;
 		
@@ -145,6 +148,32 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 			inet_ntop(AF_INET, &igmp->ifaddr,
 				  igmp_str,sizeof(igmp_str))
 		);
+
+	if(IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
+		if(IPV4_MC_LINKLOCAL(ntohl(dst_addr.s_addr))) {
+			ttl = 1;
+		}
+		else {
+			if(mtracep->type == PIM_IGMP_MTRACE_RESPONSE)
+				ttl = mtracep->rsp_ttl;
+			else
+				ttl = 64;
+		}
+		ret = getsockopt(igmp->fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
+				&ttl_len);
+		if(ret < 0) {
+			zlog_warn("Failed to get socket multicast TTL");
+			return -1;
+		}
+		ret = setsockopt(igmp->fd,IPPROTO_IP,IP_MULTICAST_TTL,&ttl,
+				sizeof(ttl));
+
+		if(ret < 0) {
+			zlog_warn("Failed to set socket multicast TTL");
+			ret = -1;
+			goto reset_ttl;
+		}
+	}
 
 	sent = sendto(igmp->fd, (char *)mtracep, mtrace_buf_len, MSG_DONTWAIT,
 		(struct sockaddr *)&to, tolen);
@@ -170,9 +199,21 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 				sent
 			);
 		}
-		return -1;
+		ret = -1;
+		goto reset_ttl;
 	}
-	return 0;
+	ret = 0;
+reset_ttl:
+	if(IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
+		ret = setsockopt(igmp->fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
+				ttl_len);
+
+		if(ret < 0) {
+			zlog_warn("Failed to set saved socket multicast TTL");
+			ret = -1;
+		}
+	}
+	return ret;
 }
 
 static struct igmp_sock *get_primary_igmp_sock(struct pim_interface *pim_ifp)
