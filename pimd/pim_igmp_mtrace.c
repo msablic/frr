@@ -119,7 +119,8 @@ static uint32_t query_arrival_time()
 	return qat;
 }
 
-static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf,
+static int mtrace_send_packet(struct igmp_sock *igmp,
+			      struct igmp_mtrace *mtracep,
 			      size_t mtrace_buf_len, struct in_addr dst_addr,
 			      struct in_addr group_addr )
 {
@@ -127,6 +128,8 @@ static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf,
 	struct interface *ifp;
 	socklen_t tolen;
 	ssize_t sent;
+	char igmp_str[INET_ADDRSTRLEN];
+	char rsp_str[INET_ADDRSTRLEN];
 
 	ifp = igmp->interface;
 		
@@ -135,7 +138,15 @@ static int mtrace_send_packet(struct igmp_sock *igmp, char *mtrace_buf,
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	sent = sendto(igmp->fd, mtrace_buf, mtrace_buf_len, MSG_DONTWAIT,
+	if (PIM_DEBUG_IGMP_PACKETS)
+		zlog_debug("Sending mtrace packet to %s on %s",
+			inet_ntop(AF_INET, &mtracep->rsp_addr,
+				  rsp_str,sizeof(rsp_str)),
+			inet_ntop(AF_INET, &igmp->ifaddr,
+				  igmp_str,sizeof(igmp_str))
+		);
+
+	sent = sendto(igmp->fd, (char *)mtracep, mtrace_buf_len, MSG_DONTWAIT,
 		(struct sockaddr *)&to, tolen);
 
 	if (sent != (ssize_t)mtrace_buf_len) {
@@ -210,13 +221,6 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 
 	ip_hdr->ip_sum = in_cksum(ip_hdr,ip_hdr->ip_hl*4);
 
-	ret = pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0);
-
-	if(ret != 0) {
-		zlog_warn("Dropping mtrace packet, no route to destination");
-		return -1;
-	}
-
 	fd = pim_socket_raw(IPPROTO_RAW);
 
 	if(fd < 0)
@@ -224,16 +228,28 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 
 	pim_socket_ip_hdr(fd);
 
-	igmp_out = get_primary_igmp_sock(nexthop.interface->info);
+	igmp_out = NULL;
 
-	if(igmp_out == NULL)
-		return -1;
+	if(!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
+		ret = pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0);
 
-	ret = pim_socket_bind(fd,igmp_out->interface);
+		if(ret != 0) {
+			zlog_warn("Dropping mtrace packet, "
+				"no route to destination");
+			return -1;
+		}
 
-	if(ret < 0) {
-		close(fd);
-		return -1;
+		igmp_out = get_primary_igmp_sock(nexthop.interface->info);
+
+		if(igmp_out == NULL)
+			return -1;
+
+		ret = pim_socket_bind(fd,igmp_out->interface);
+
+		if(ret < 0) {
+			close(fd);
+			return -1;
+		}
 	}
 
 	memset(&to, 0, sizeof(to));
@@ -254,6 +270,13 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 		return -1;
 	}
 
+	if (PIM_DEBUG_IGMP_PACKETS) {
+		zlog_debug("Fwd mtrace packet len=%u to %s ttl=%u",
+			ntohs(ip_hdr->ip_len),
+			inet_ntoa(ip_hdr->ip_dst),
+			ip_hdr->ip_ttl);
+	}
+
 	return 0;
 }
 
@@ -262,44 +285,55 @@ static int mtrace_send_response(struct pim_instance *pim,
 				struct igmp_mtrace *mtracep, size_t mtrace_len)
 {
 	struct pim_nexthop nexthop;
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
 	int ret;
-	char igmp_str[INET_ADDRSTRLEN];
-	char rsp_str[INET_ADDRSTRLEN];
-
-	if(IPV4_CLASS_DE(ntohl(mtracep->rsp_addr.s_addr))) {
-		zlog_warn("Multicast mtrace responses not implemented");
-		return -1;
-	}
-
-	/* TODO: should use unicast rib lookup */
-	ret = pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1);
-
-	if(ret != 0) {
-		zlog_warn("Dropped response qid=%ud, no route to response "
-			"address",
-			mtracep->qry_id
-		);
-		return -1;
-	}
-
-	igmp = get_primary_igmp_sock(nexthop.interface->info);
 
 	mtracep->type = PIM_IGMP_MTRACE_RESPONSE;
 
 	mtracep->checksum = 0;
 	mtracep->checksum = in_cksum((char*)mtracep,mtrace_len);
 
-	if (PIM_DEBUG_IGMP_PACKETS)
-		zlog_debug("Sending mtrace response to %s on %s",
-			inet_ntop(AF_INET, &mtracep->rsp_addr,
-				  rsp_str,sizeof(rsp_str)),
-			inet_ntop(AF_INET, &igmp->ifaddr,
-				  igmp_str,sizeof(igmp_str))
-		);
+	if(IPV4_CLASS_DE(ntohl(mtracep->rsp_addr.s_addr))) {
+		FOR_ALL_INTERFACES(pim->vrf, ifp) {
+			pim_ifp = ifp->info;
 
-	return mtrace_send_packet(igmp,(char*)mtracep,mtrace_len,
-				  mtracep->rsp_addr,mtracep->grp_addr);
+			igmp = get_primary_igmp_sock(pim_ifp);
+
+			if(igmp == NULL)
+				continue;
+
+			ret = mtrace_send_packet(igmp,mtracep,
+						  mtrace_len,
+						  mtracep->rsp_addr,
+						  mtracep->grp_addr);
+			if(ret != 0) {
+				zlog_warn("Dropped response qid=%ud on %s",
+				 	mtracep->qry_id,
+					inet_ntoa(igmp->ifaddr)
+				);
+			}
+		}
+		return 0;
+	}
+	else {
+		/* TODO: should use unicast rib lookup */
+		ret = pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1);
+
+		if(ret != 0) {
+			zlog_warn("Dropped response qid=%ud, no route to "
+			"response address",
+			mtracep->qry_id
+			);
+			return -1;
+		}
+
+		igmp = get_primary_igmp_sock(nexthop.interface->info);
+
+		return mtrace_send_packet(igmp,mtracep,mtrace_len,
+				  	  mtracep->rsp_addr,mtracep->grp_addr);
+	}
 }
 
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
@@ -538,7 +572,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	mtracerp->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
 	
-	return mtrace_send_packet(igmp_out,mtrace_buf,mtrace_buf_len,nh_addr,
+	return mtrace_send_packet(igmp_out,mtracerp,mtrace_buf_len,nh_addr,
 			          mtracep->grp_addr);
 }
 
@@ -552,11 +586,6 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 	struct igmp_mtrace *mtracep;
 	uint16_t recv_checksum;
 	uint16_t checksum;
-
-	if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
-		zlog_warn("Multicast mtrace responses not implemented");
-		return -1;
-	}
 
 	ifp = igmp->interface;
 
