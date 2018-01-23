@@ -22,6 +22,7 @@
 #include "pimd.h"
 #include "pim_util.h"
 #include "pim_sock.h"
+#include "pim_rp.h"
 #include "pim_igmp_mtrace.h"
 
 static void mtrace_rsp_init(struct igmp_mtrace_rsp *mtrace_rspp) {
@@ -326,8 +327,6 @@ static int mtrace_send_response(struct pim_instance *pim,
 				struct igmp_mtrace *mtracep, size_t mtrace_len)
 {
 	struct pim_nexthop nexthop;
-	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
 	int ret;
 
@@ -337,26 +336,18 @@ static int mtrace_send_response(struct pim_instance *pim,
 	mtracep->checksum = in_cksum((char*)mtracep,mtrace_len);
 
 	if(IPV4_CLASS_DE(ntohl(mtracep->rsp_addr.s_addr))) {
-		FOR_ALL_INTERFACES(pim->vrf, ifp) {
-			pim_ifp = ifp->info;
+		struct pim_rpf *p_rpf;
+		char grp_str[INET_ADDRSTRLEN];
 
-			igmp = get_primary_igmp_sock(pim_ifp);
+		p_rpf = pim_rp_g(pim,mtracep->rsp_addr);
 
-			if(igmp == NULL)
-				continue;
-
-			ret = mtrace_send_packet(igmp,mtracep,
-						  mtrace_len,
-						  mtracep->rsp_addr,
-						  mtracep->grp_addr);
-			if(ret != 0) {
-				zlog_warn("Dropped response qid=%ud on %s",
-				 	mtracep->qry_id,
-					inet_ntoa(igmp->ifaddr)
-				);
-			}
+		if(p_rpf == NULL) {
+			zlog_warn("mtrace no RP for %s",
+				inet_ntop(AF_INET,&(mtracep->rsp_addr),
+					grp_str,sizeof(grp_str)));
+			return -1;
 		}
-		return 0;
+		nexthop = p_rpf->source_nexthop;
 	}
 	else {
 		/* TODO: should use unicast rib lookup */
@@ -369,12 +360,12 @@ static int mtrace_send_response(struct pim_instance *pim,
 			);
 			return -1;
 		}
-
-		igmp = get_primary_igmp_sock(nexthop.interface->info);
-
-		return mtrace_send_packet(igmp,mtracep,mtrace_len,
-				  	  mtracep->rsp_addr,mtracep->grp_addr);
 	}
+
+	igmp = get_primary_igmp_sock(nexthop.interface->info);
+
+	return mtrace_send_packet(igmp,mtracep,mtrace_len,
+				  mtracep->rsp_addr,mtracep->grp_addr);
 }
 
 int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
