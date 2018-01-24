@@ -23,6 +23,9 @@
 #include "pim_util.h"
 #include "pim_sock.h"
 #include "pim_rp.h"
+#include "pim_oil.h"
+#include "pim_ifchannel.h"
+#include "pim_macro.h"
 #include "pim_igmp_mtrace.h"
 
 static void mtrace_rsp_init(struct igmp_mtrace_rsp *mtrace_rspp) {
@@ -240,11 +243,12 @@ static struct igmp_sock *get_primary_igmp_sock(struct pim_interface *pim_ifp)
 	return igmp;
 }
 
-static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
+static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip* ip_hdr,
+				    struct interface* interface)
 {
 	struct pim_nexthop nexthop;
 	struct sockaddr_in to;
-	struct igmp_sock *igmp_out;
+	struct interface *if_out;
 	socklen_t tolen;
 	int ret;
 	int fd;
@@ -270,9 +274,9 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 
 	pim_socket_ip_hdr(fd);
 
-	igmp_out = NULL;
+	if(interface == NULL) {
+		struct igmp_sock *igmp_out;
 
-	if(!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
 		ret = pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0);
 
 		if(ret != 0) {
@@ -286,12 +290,17 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 		if(igmp_out == NULL)
 			return -1;
 
-		ret = pim_socket_bind(fd,igmp_out->interface);
+		if_out = igmp_out->interface;
+	}
+	else {
+		if_out = interface;
+	}
 
-		if(ret < 0) {
-			close(fd);
-			return -1;
-		}
+	ret = pim_socket_bind(fd,if_out);
+
+	if(ret < 0) {
+		close(fd);
+		return -1;
 	}
 
 	memset(&to, 0, sizeof(to));
@@ -322,7 +331,102 @@ static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 	return 0;
 }
 
+static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
+{
+	struct prefix_sg sg;
+	struct channel_oil *c_oil;
+	struct listnode *chnode;
+	struct listnode *chnextnode;
+	struct pim_ifchannel *ch = NULL;
+	int ret = -1;
+
+	memset(&sg,0,sizeof(struct prefix_sg));
+	sg.grp = ip_hdr->ip_dst;
+
+	c_oil = pim_find_channel_oil(pim,&sg);
+
+	if(c_oil == NULL) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug("Dropping mtrace multicast packet "
+				"len=%u to %s ttl=%u",
+				ntohs(ip_hdr->ip_len),
+				inet_ntoa(ip_hdr->ip_dst),
+				ip_hdr->ip_ttl);
+		}
+		return -1;
+	}
+	if(c_oil->up == NULL)
+		return -1;
+	if(c_oil->up->ifchannels == NULL)
+		return -1;
+	for(ALL_LIST_ELEMENTS(c_oil->up->ifchannels, chnode, chnextnode, ch)) {
+		if(pim_macro_chisin_oiflist(ch)) {
+			int r;
+			r = mtrace_un_forward_packet(pim,ip_hdr,ch->interface);
+			if(r == 0)
+				ret = 0;
+		}
+	}
+	return ret;
+}
+
+
+static int mtrace_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
+{
+	if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
+		return mtrace_mc_forward_packet(pim,ip_hdr);
+	else
+		return mtrace_un_forward_packet(pim,ip_hdr,NULL);
+}
+
 /* 6.5 Sending Traceroute Responses */
+static int mtrace_send_mc_response(struct pim_instance *pim,
+				   struct igmp_mtrace *mtracep,
+				   size_t mtrace_len)
+{
+	struct prefix_sg sg;
+	struct channel_oil *c_oil;
+	struct listnode *chnode;
+	struct listnode *chnextnode;
+	struct pim_ifchannel *ch = NULL;
+	int ret = -1;
+
+	memset(&sg,0,sizeof(struct prefix_sg));
+	sg.grp = mtracep->rsp_addr;
+
+	c_oil = pim_find_channel_oil(pim,&sg);
+
+	if(c_oil == NULL) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug("Dropping mtrace multicast response packet "
+				"len=%u to %s",
+				(unsigned int)mtrace_len,
+				inet_ntoa(mtracep->rsp_addr));
+		}
+		return -1;
+	}
+	if(c_oil->up == NULL)
+		return -1;
+	if(c_oil->up->ifchannels == NULL)
+		return -1;
+	for(ALL_LIST_ELEMENTS(c_oil->up->ifchannels, chnode, chnextnode, ch)) {
+		if(pim_macro_chisin_oiflist(ch)) {
+			struct igmp_sock *igmp;
+
+			igmp = get_primary_igmp_sock(ch->interface->info);
+
+			int r;
+			r = mtrace_send_packet(igmp,mtracep,mtrace_len,
+					       mtracep->rsp_addr,
+					       mtracep->grp_addr);
+			if(r == 0)
+				ret = 0;
+		}
+	}
+	return ret;
+
+}
+
 static int mtrace_send_response(struct pim_instance *pim,
 				struct igmp_mtrace *mtracep, size_t mtrace_len)
 {
@@ -339,6 +443,9 @@ static int mtrace_send_response(struct pim_instance *pim,
 		struct pim_rpf *p_rpf;
 		char grp_str[INET_ADDRSTRLEN];
 
+		if(pim_rp_i_am_rp(pim,mtracep->rsp_addr))
+			return mtrace_send_mc_response(pim,mtracep,mtrace_len);
+
 		p_rpf = pim_rp_g(pim,mtracep->rsp_addr);
 
 		if(p_rpf == NULL) {
@@ -348,6 +455,8 @@ static int mtrace_send_response(struct pim_instance *pim,
 			return -1;
 		}
 		nexthop = p_rpf->source_nexthop;
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug("mtrace response to RP");
 	}
 	else {
 		/* TODO: should use unicast rib lookup */
