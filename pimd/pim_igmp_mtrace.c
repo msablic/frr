@@ -415,6 +415,9 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 
 			igmp = get_primary_igmp_sock(ch->interface->info);
 
+			if(igmp == NULL)
+				continue;
+
 			int r;
 			r = mtrace_send_packet(igmp,mtracep,mtrace_len,
 					       mtracep->rsp_addr,
@@ -472,6 +475,9 @@ static int mtrace_send_response(struct pim_instance *pim,
 	}
 
 	igmp = get_primary_igmp_sock(nexthop.interface->info);
+
+	if(igmp == NULL)
+		return -1;
 
 	return mtrace_send_packet(igmp,mtracep,mtrace_len,
 				  mtracep->rsp_addr,mtracep->grp_addr);
@@ -679,6 +685,9 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	struct igmp_sock *igmp_out = get_primary_igmp_sock(
 					nexthop.interface->info);
+
+	if(igmp == NULL)
+		return -1;
 	
 	mtracerp->rsp[last_rsp_ind].incoming.s_addr = igmp_out->ifaddr.s_addr;
 	mtracerp->rsp[last_rsp_ind].prev_hop.s_addr = nh_addr.s_addr;
