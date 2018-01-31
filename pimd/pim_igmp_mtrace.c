@@ -275,8 +275,6 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip* ip_hdr,
 	pim_socket_ip_hdr(fd);
 
 	if(interface == NULL) {
-		struct igmp_sock *igmp_out;
-
 		ret = pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0);
 
 		if(ret != 0) {
@@ -285,12 +283,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip* ip_hdr,
 			return -1;
 		}
 
-		igmp_out = get_primary_igmp_sock(nexthop.interface->info);
-
-		if(igmp_out == NULL)
-			return -1;
-
-		if_out = igmp_out->interface;
+		if_out = nexthop.interface;
 	}
 	else {
 		if_out = interface;
