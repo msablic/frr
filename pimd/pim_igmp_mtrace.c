@@ -686,7 +686,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	struct igmp_sock *igmp_out = get_primary_igmp_sock(
 					nexthop.interface->info);
 
-	if(igmp == NULL)
+	if(igmp_out == NULL)
 		return -1;
 	
 	mtracerp->rsp[last_rsp_ind].incoming.s_addr = igmp_out->ifaddr.s_addr;
