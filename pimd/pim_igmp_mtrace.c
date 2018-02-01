@@ -123,23 +123,24 @@ static uint32_t query_arrival_time()
 	return qat;
 }
 
-static int mtrace_send_packet(struct igmp_sock *igmp,
+static int mtrace_send_packet(struct interface *ifp,
 			      struct igmp_mtrace *mtracep,
 			      size_t mtrace_buf_len, struct in_addr dst_addr,
 			      struct in_addr group_addr )
 {
 	struct sockaddr_in to;
-	struct interface *ifp;
+	struct pim_interface *pim_ifp;
 	socklen_t tolen;
 	ssize_t sent;
 	int ret;
+	int fd;
 	socklen_t ttl_len;
-	char igmp_str[INET_ADDRSTRLEN];
+	char pim_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
 	u_char ttl, sttl;
 
-	ifp = igmp->interface;
-		
+	pim_ifp = ifp->info;
+
 	memset(&to, 0, sizeof(to));
 	to.sin_family = AF_INET;
 	to.sin_addr = dst_addr;
@@ -149,9 +150,21 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 		zlog_debug("Sending mtrace packet to %s on %s",
 			inet_ntop(AF_INET, &mtracep->rsp_addr,
 				  rsp_str,sizeof(rsp_str)),
-			inet_ntop(AF_INET, &igmp->ifaddr,
-				  igmp_str,sizeof(igmp_str))
+			inet_ntop(AF_INET, &pim_ifp->primary_address,
+				  pim_str,sizeof(pim_str))
 		);
+
+	fd = pim_socket_raw(IPPROTO_IGMP);
+
+	if(fd < 0)
+		return -1;
+
+	ret = pim_socket_bind(fd,ifp);
+
+	if(ret < 0) {
+		close(fd);
+		return -1;
+	}
 
 	if(IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
 		if(IPV4_MC_LINKLOCAL(ntohl(dst_addr.s_addr))) {
@@ -163,13 +176,13 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 			else
 				ttl = 64;
 		}
-		ret = getsockopt(igmp->fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
+		ret = getsockopt(fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
 				&ttl_len);
 		if(ret < 0) {
 			zlog_warn("Failed to get socket multicast TTL");
 			return -1;
 		}
-		ret = setsockopt(igmp->fd,IPPROTO_IP,IP_MULTICAST_TTL,&ttl,
+		ret = setsockopt(fd,IPPROTO_IP,IP_MULTICAST_TTL,&ttl,
 				sizeof(ttl));
 
 		if(ret < 0) {
@@ -179,7 +192,7 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 		}
 	}
 
-	sent = sendto(igmp->fd, (char *)mtracep, mtrace_buf_len, MSG_DONTWAIT,
+	sent = sendto(fd, (char *)mtracep, mtrace_buf_len, MSG_DONTWAIT,
 		(struct sockaddr *)&to, tolen);
 
 	if (sent != (ssize_t)mtrace_buf_len) {
@@ -209,7 +222,7 @@ static int mtrace_send_packet(struct igmp_sock *igmp,
 	ret = 0;
 reset_ttl:
 	if(IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
-		ret = setsockopt(igmp->fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
+		ret = setsockopt(fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
 				ttl_len);
 
 		if(ret < 0) {
@@ -217,30 +230,8 @@ reset_ttl:
 			ret = -1;
 		}
 	}
+	close(fd);
 	return ret;
-}
-
-static struct igmp_sock *get_primary_igmp_sock(struct pim_interface *pim_ifp)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-	
-	for(ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		if(igmp->ifaddr.s_addr == pim_ifp->primary_address.s_addr) {
-			break;
-		}
-	}
-	if(igmp == NULL) {
-		char pim_str[INET_ADDRSTRLEN];
-		zlog_warn("Not found output IGMP socket on PIM interface "
-			"%s for mtrace packet",
-			inet_ntop(AF_INET,
-				&pim_ifp->primary_address,
-				pim_str,sizeof(pim_str))
-		);
-		return NULL;
-	}
-	return igmp;
 }
 
 static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip* ip_hdr,
@@ -404,15 +395,8 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 		return -1;
 	for(ALL_LIST_ELEMENTS(c_oil->up->ifchannels, chnode, chnextnode, ch)) {
 		if(pim_macro_chisin_oiflist(ch)) {
-			struct igmp_sock *igmp;
-
-			igmp = get_primary_igmp_sock(ch->interface->info);
-
-			if(igmp == NULL)
-				continue;
-
 			int r;
-			r = mtrace_send_packet(igmp,mtracep,mtrace_len,
+			r = mtrace_send_packet(ch->interface,mtracep,mtrace_len,
 					       mtracep->rsp_addr,
 					       mtracep->grp_addr);
 			if(r == 0)
@@ -427,7 +411,6 @@ static int mtrace_send_response(struct pim_instance *pim,
 				struct igmp_mtrace *mtracep, size_t mtrace_len)
 {
 	struct pim_nexthop nexthop;
-	struct igmp_sock *igmp;
 	int ret;
 
 	mtracep->type = PIM_IGMP_MTRACE_RESPONSE;
@@ -467,12 +450,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 		}
 	}
 
-	igmp = get_primary_igmp_sock(nexthop.interface->info);
-
-	if(igmp == NULL)
-		return -1;
-
-	return mtrace_send_packet(igmp,mtracep,mtrace_len,
+	return mtrace_send_packet(nexthop.interface,mtracep,mtrace_len,
 				  mtracep->rsp_addr,mtracep->grp_addr);
 }
 
@@ -485,6 +463,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	struct pim_nexthop nexthop;
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
+	struct pim_interface *pim_out_ifp;
 	struct igmp_mtrace* mtracep;
 	struct igmp_mtrace* mtracerp;
 	struct in_addr nh_addr;
@@ -676,14 +655,10 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 					    mtrace_buf_len);
 	}
 
-	struct igmp_sock *igmp_out = get_primary_igmp_sock(
-					nexthop.interface->info);
+	pim_out_ifp = nexthop.interface->info;
 
-	if(igmp_out == NULL)
-		return -1;
-	
-	mtracerp->rsp[last_rsp_ind].incoming.s_addr = igmp_out->ifaddr.s_addr;
-	mtracerp->rsp[last_rsp_ind].prev_hop.s_addr = nh_addr.s_addr;
+	mtracerp->rsp[last_rsp_ind].incoming = pim_out_ifp->primary_address;
+	mtracerp->rsp[last_rsp_ind].prev_hop = nh_addr;
 	mtracerp->rsp[last_rsp_ind].in_count = htonl(MTRACE_UNKNOWN_COUNT);
 	mtracerp->rsp[last_rsp_ind].total = htonl(MTRACE_UNKNOWN_COUNT);
 	mtracerp->rsp[last_rsp_ind].rtg_proto = RTG_PROTO_PIM; 
@@ -715,8 +690,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	mtracerp->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
 	
-	return mtrace_send_packet(igmp_out,mtracerp,mtrace_buf_len,nh_addr,
-			          mtracep->grp_addr);
+	return mtrace_send_packet(nexthop.interface,mtracerp,mtrace_buf_len,
+				  nh_addr,mtracep->grp_addr);
 }
 
 int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
