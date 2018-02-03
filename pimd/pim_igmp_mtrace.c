@@ -462,18 +462,18 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	char mtrace_buf[MTRACE_HDR_SIZE+MTRACE_MAX_HOPS*MTRACE_RSP_SIZE];
 	struct pim_nexthop nexthop;
 	struct interface *ifp;
+	struct interface *out_ifp;
 	struct pim_interface *pim_ifp;
 	struct pim_interface *pim_out_ifp;
 	struct igmp_mtrace *mtracep;
-	struct igmp_mtrace *mtracerp;
 	struct igmp_mtrace_rsp *rspp;
 	struct in_addr nh_addr;
 	enum mtrace_fwd_code fwd_code = FWD_CODE_NO_ERROR;
 	int forward = 1;
 	int ret;
-	size_t response_len;
+	size_t r_len;
 	int last_rsp_ind = 0;
-	size_t mtrace_buf_len;
+	size_t mtrace_len;
 	uint16_t recv_checksum;
 	uint16_t checksum;
 
@@ -544,8 +544,11 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	if (PIM_DEBUG_IGMP_PACKETS)
 		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
 
+	/* subtract header from message length */
+	r_len = igmp_msg_len - sizeof(struct igmp_mtrace);
+
 	/* Classify mtrace packet, check if it is a query */	
-	if((unsigned)igmp_msg_len == sizeof(struct igmp_mtrace)) {
+	if(!r_len) {
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug("Received IGMP multicast traceroute query");
 
@@ -569,13 +572,12 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		qry_id = mtracep->qry_id;
 		qry_src = from.s_addr;
 	}
-	else if(((igmp_msg_len - sizeof(struct igmp_mtrace))
-			% sizeof(struct igmp_mtrace_rsp)) == 0) {
-		response_len = igmp_msg_len - sizeof(struct igmp_mtrace);
+	/* if response fields length is equal to a whole number of responses */ 
+	else if((r_len % sizeof(struct igmp_mtrace_rsp)) == 0) {
+		r_len = igmp_msg_len - sizeof(struct igmp_mtrace);
 
-		if(response_len != 0)
-			last_rsp_ind = response_len/
-					sizeof(struct igmp_mtrace_rsp);
+		if(r_len != 0)
+			last_rsp_ind = r_len/sizeof(struct igmp_mtrace_rsp);
 		if(last_rsp_ind > MTRACE_MAX_HOPS) {
 			zlog_warn("Mtrace request of excessive size");
 			return -1;
@@ -607,15 +609,19 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		return mtrace_send_response(pim_ifp->pim,mtracep,igmp_msg_len);
 	}
 
-	/* allocate mtrace request buffer */
-	mtrace_buf_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
+	/* calculate new mtrace mtrace lenght with extra response */
+	mtrace_len = igmp_msg_len + sizeof(struct igmp_mtrace_rsp);
 
+	/* copy received query/request */
 	memcpy(mtrace_buf,igmp_msg,igmp_msg_len);
 
-	mtracerp = (struct igmp_mtrace*)mtrace_buf;
+	/* repoint mtracep pointer to copy */
+	mtracep = (struct igmp_mtrace*)mtrace_buf;
 
-	rspp = &mtracerp->rsp[last_rsp_ind];
+	/* pointer for extra response field to be filled in */
+	rspp = &mtracep->rsp[last_rsp_ind];
 
+	/* initialize extra response field */
 	mtrace_rsp_init(rspp);
 
 	rspp->arrival = htonl(query_arrival_time());
@@ -634,15 +640,14 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug("mtrace pim_nexthop_lookup OK");
 
-
 		zlog_warn("mtrace next_hop=%s",
 			inet_ntop(nexthop.mrib_nexthop_addr.family,
 				  &nexthop.mrib_nexthop_addr.u.prefix,
 				  nexthop_str,sizeof(nexthop_str))
 		);
+
 		if(nexthop.mrib_nexthop_addr.family == AF_INET) {
-			nh_addr.s_addr
-				= nexthop.mrib_nexthop_addr.u.prefix4.s_addr;
+			nh_addr = nexthop.mrib_nexthop_addr.u.prefix4;
 		}
 	}
 	/* 6.4 Forwarding Traceroute Requests: ... Otherwise, ... */
@@ -654,11 +659,11 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		else
 			rspp->fwd_code = fwd_code;
 		/* 6.5 Sending Traceroute Responses */
-		return mtrace_send_response(pim_ifp->pim,mtracerp,
-					    mtrace_buf_len);
+		return mtrace_send_response(pim_ifp->pim,mtracep,mtrace_len);
 	}
 
-	pim_out_ifp = nexthop.interface->info;
+	out_ifp = nexthop.interface;
+	pim_out_ifp = out_ifp->info;
 
 	rspp->incoming = pim_out_ifp->primary_address;
 	rspp->prev_hop = nh_addr;
@@ -670,10 +675,9 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	if (nh_addr.s_addr == 0) {
 		/* reached source? */
-		if(pim_if_connected_to_source(nexthop.interface,
-					      mtracep->src_addr)) {
-			return mtrace_send_response(pim_ifp->pim,mtracerp,
-						    mtrace_buf_len);
+		if(pim_if_connected_to_source(out_ifp,mtracep->src_addr)) {
+			return mtrace_send_response(pim_ifp->pim,mtracep,
+						    mtrace_len);
 		}
 		else {
 			/*
@@ -685,16 +689,15 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	if(mtracep->hops <= (last_rsp_ind+1)) {
-		return mtrace_send_response(pim_ifp->pim,mtracerp,
-					    mtrace_buf_len);
+		return mtrace_send_response(pim_ifp->pim,mtracep,mtrace_len);
 	}
 
-	mtracerp->checksum = 0;
+	mtracep->checksum = 0;
 
-	mtracerp->checksum = in_cksum(mtrace_buf,mtrace_buf_len);
+	mtracep->checksum = in_cksum(mtrace_buf,mtrace_len);
 	
-	return mtrace_send_packet(nexthop.interface,mtracerp,mtrace_buf_len,
-				  nh_addr,mtracep->grp_addr);
+	return mtrace_send_packet(out_ifp,mtracep,mtrace_len,nh_addr,
+				  mtracep->grp_addr);
 }
 
 int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
