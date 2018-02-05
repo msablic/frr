@@ -134,10 +134,9 @@ static int mtrace_send_packet(struct interface *ifp,
 	ssize_t sent;
 	int ret;
 	int fd;
-	socklen_t ttl_len;
 	char pim_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
-	u_char ttl, sttl;
+	u_char ttl;
 
 	pim_ifp = ifp->info;
 
@@ -162,8 +161,8 @@ static int mtrace_send_packet(struct interface *ifp,
 	ret = pim_socket_bind(fd,ifp);
 
 	if(ret < 0) {
-		close(fd);
-		return -1;
+		ret = -1;
+		goto close_fd;
 	}
 
 	if(IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
@@ -176,19 +175,13 @@ static int mtrace_send_packet(struct interface *ifp,
 			else
 				ttl = 64;
 		}
-		ret = getsockopt(fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
-				&ttl_len);
-		if(ret < 0) {
-			zlog_warn("Failed to get socket multicast TTL");
-			return -1;
-		}
 		ret = setsockopt(fd,IPPROTO_IP,IP_MULTICAST_TTL,&ttl,
 				sizeof(ttl));
 
 		if(ret < 0) {
 			zlog_warn("Failed to set socket multicast TTL");
 			ret = -1;
-			goto reset_ttl;
+			goto close_fd;
 		}
 	}
 
@@ -217,19 +210,10 @@ static int mtrace_send_packet(struct interface *ifp,
 			);
 		}
 		ret = -1;
-		goto reset_ttl;
+		goto close_fd;
 	}
 	ret = 0;
-reset_ttl:
-	if(IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
-		ret = setsockopt(fd,IPPROTO_IP,IP_MULTICAST_TTL,&sttl,
-				ttl_len);
-
-		if(ret < 0) {
-			zlog_warn("Failed to set saved socket multicast TTL");
-			ret = -1;
-		}
-	}
+close_fd:
 	close(fd);
 	return ret;
 }
