@@ -146,7 +146,7 @@ static int mtrace_send_packet(struct interface *ifp,
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	if (PIM_DEBUG_IGMP_PACKETS)
+	if (PIM_DEBUG_MTRACE)
 		zlog_debug("Sending mtrace packet to %s on %s",
 			inet_ntop(AF_INET, &mtracep->rsp_addr,
 				  rsp_str,sizeof(rsp_str)),
@@ -305,7 +305,7 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip* ip_hdr,
 		return -1;
 	}
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_MTRACE) {
 		zlog_debug("Fwd mtrace packet len=%u to %s ttl=%u",
 			ntohs(ip_hdr->ip_len),
 			inet_ntoa(ip_hdr->ip_dst),
@@ -330,7 +330,7 @@ static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip* ip_hdr)
 	c_oil = pim_find_channel_oil(pim,&sg);
 
 	if(c_oil == NULL) {
-		if (PIM_DEBUG_IGMP_PACKETS) {
+		if (PIM_DEBUG_MTRACE) {
 			zlog_debug("Dropping mtrace multicast packet "
 				"len=%u to %s ttl=%u",
 				ntohs(ip_hdr->ip_len),
@@ -381,7 +381,7 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 	c_oil = pim_find_channel_oil(pim,&sg);
 
 	if(c_oil == NULL) {
-		if (PIM_DEBUG_IGMP_PACKETS) {
+		if (PIM_DEBUG_MTRACE) {
 			zlog_debug("Dropping mtrace multicast response packet "
 				"len=%u to %s",
 				(unsigned int)mtrace_len,
@@ -434,7 +434,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 			return -1;
 		}
 		nexthop = p_rpf->source_nexthop;
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace response to RP");
 	}
 	else {
@@ -541,7 +541,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		return -1;
 	}
 
-	if (PIM_DEBUG_IGMP_PACKETS)
+	if (PIM_DEBUG_MTRACE)
 		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
 
 	/* subtract header from message length */
@@ -549,13 +549,13 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	/* Classify mtrace packet, check if it is a query */	
 	if(!r_len) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_MTRACE)
 			zlog_debug("Received IGMP multicast traceroute query");
 
 		/* 6.1.1  Packet verification */
 		if(!pim_if_connected_to_source(ifp, mtracep->dst_addr)) {
 			if(IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))  {
-				if (PIM_DEBUG_IGMP_PACKETS)
+				if (PIM_DEBUG_MTRACE)
 					zlog_debug("Dropping multicast query "
 						   "on wrong interface");
 				return -1;
@@ -564,7 +564,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 			fwd_code = FWD_CODE_WRONG_IF;
 		}
 		if(qry_id == mtracep->qry_id && qry_src == from.s_addr) {
-			if (PIM_DEBUG_IGMP_PACKETS)
+			if (PIM_DEBUG_MTRACE)
 				zlog_debug("Dropping multicast query with "
 				 	   "duplicate source and id");
 			return -1;
@@ -637,7 +637,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	if(ret == 0) {
 		char nexthop_str[INET_ADDRSTRLEN];
 
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace pim_nexthop_lookup OK");
 
 		zlog_warn("mtrace next_hop=%s",
@@ -652,7 +652,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 	/* 6.4 Forwarding Traceroute Requests: ... Otherwise, ... */
 	else {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace not found neighbor");
 		if(!fwd_code)
 			rspp->fwd_code = FWD_CODE_NO_ROUTE;
@@ -734,7 +734,7 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	mtracep->checksum = checksum;
 
-	if (PIM_DEBUG_IGMP_PACKETS)
+	if (PIM_DEBUG_MTRACE)
 		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
 
 	/* Drop duplicate packets */

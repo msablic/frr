@@ -7315,6 +7315,27 @@ DEFUN (no_debug_msdp_packets,
 ALIAS(no_debug_msdp_packets, undebug_msdp_packets_cmd, "undebug msdp packets",
       UNDEBUG_STR DEBUG_MSDP_STR DEBUG_MSDP_PACKETS_STR)
 
+DEFUN (debug_mtrace,
+       debug_mtrace_cmd,
+       "debug mtrace",
+       DEBUG_STR
+       DEBUG_MTRACE_STR)
+{
+	PIM_DO_DEBUG_MTRACE;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_mtrace,
+       no_debug_mtrace_cmd,
+       "no debug mtrace",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MTRACE_STR)
+{
+	PIM_DONT_DEBUG_MTRACE;
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
 	    "show debugging [pim]",
@@ -8754,6 +8775,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &undebug_msdp_packets_cmd);
+	install_element(CONFIG_NODE, &debug_mtrace_cmd);
+	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
 
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
