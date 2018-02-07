@@ -132,7 +132,7 @@ int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
 		return -1;
 	}
 
-	for (h = (struct nlmsghdr *)resp; NLMSG_OK(h, status);
+	for (h = (struct nlmsghdr *)resp; NLMSG_OK(h, (uint32_t)status);
 	     h = NLMSG_NEXT(h, status)) {
 		if (h->nlmsg_type == NLMSG_ERROR) {
 			struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
@@ -214,7 +214,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 			struct nlmsghdr *h = (struct nlmsghdr*)buf;
 			msglen = status;
 
-			while (NLMSG_OK(h, msglen)) {
+			while (NLMSG_OK(h, (uint32_t)msglen)) {
 				int err;
 
 				if (nladdr.nl_pid != 0 ||
