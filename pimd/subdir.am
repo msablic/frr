@@ -5,6 +5,7 @@
 if PIMD
 noinst_LIBRARIES += pimd/libpim.a
 sbin_PROGRAMS += pimd/pimd
+bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
 dist_examples_DATA += pimd/pimd.conf.sample
 endif
@@ -110,3 +111,9 @@ pimd_pimd_SOURCES = pimd/pim_main.c
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
+
+pimd_mtracebis_LDADD =  lib/libfrr.la
+pimd_mtracebis_SOURCES = pimd/mtracebis.c \
+			 pimd/mtracebis_netlink.c \
+			 pimd/mtracebis_routeget.c \
+			 # end
