@@ -24,12 +24,6 @@
 
 #include "pim_igmp.h"
 
-#ifdef DEV_BUILD
-#define PIM_IGMP_MTRACE 1
-#else
-#define PIM_IGMP_MTRACE 0
-#endif
-
 #define MTRACE_MAX_HOPS		(255)
 #define MTRACE_UNKNOWN_COUNT	(0xffffffff)
 
