@@ -1,5 +1,5 @@
 /*
- * mtracebis for FRRouting
+ * Multicast Traceroute for FRRouting
  * Copyright (C) 2018  Mladen Sablic
  *
  * This program is free software; you can redistribute it and/or modify
