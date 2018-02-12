@@ -1,5 +1,5 @@
 /*
- * mtracebis for FRRouting
+ * Multicast Traceroute for FRRouting
  * Copyright (C) 2018  Mladen Sablic
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,7 +38,7 @@ static int find_dst(struct nlmsghdr *n, struct in_addr *src, struct in_addr *gw 
 {
 	struct rtmsg *r = NLMSG_DATA(n);
 	int len = n->nlmsg_len;
-	struct rtattr * tb[RTA_MAX+1];
+	struct rtattr *tb[RTA_MAX + 1];
 
 	len -= NLMSG_LENGTH(sizeof(*r));
 	if (len < 0) {
@@ -47,26 +47,26 @@ static int find_dst(struct nlmsghdr *n, struct in_addr *src, struct in_addr *gw 
 	}
 
 	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
-	if(tb[RTA_PREFSRC]) {
+	if (tb[RTA_PREFSRC]) {
 		src->s_addr = *(uint32_t *)RTA_DATA(tb[RTA_PREFSRC]);
 	}
-	if(tb[RTA_GATEWAY]) {
+	if (tb[RTA_GATEWAY]) {
 		gw->s_addr = *(uint32_t *)RTA_DATA(tb[RTA_GATEWAY]);
 	}
-	if(tb[RTA_OIF])
-		return *(int*)RTA_DATA(tb[RTA_OIF]);
+	if (tb[RTA_OIF])
+		return *(int *)RTA_DATA(tb[RTA_OIF]);
 	return 0;
 }
 
-int routeget(struct in_addr dst, struct in_addr *src, struct in_addr *gw )
+int routeget(struct in_addr dst, struct in_addr *src, struct in_addr *gw)
 {
 	struct {
-		struct nlmsghdr 	n;
-		struct rtmsg		r;
-		char			buf[1024];
+		struct nlmsghdr n;
+		struct rtmsg r;
+		char buf[1024];
 	} req;
 	int ret;
-	struct rtnl_handle rth = { .fd = -1 };
+	struct rtnl_handle rth = {.fd = -1};
 
 	memset(&req, 0, sizeof(req));
 
@@ -85,9 +85,9 @@ int routeget(struct in_addr dst, struct in_addr *src, struct in_addr *gw )
 	addattr_l(&req.n, sizeof(req), RTA_DST, &dst.s_addr, 4);
 	req.r.rtm_dst_len = 32;
 
-	ret = rtnl_open(&rth,0);
+	ret = rtnl_open(&rth, 0);
 
-	if(ret < 0)
+	if (ret < 0)
 		return ret;
 
 	if (rtnl_talk(&rth, &req.n, 0, 0, &req.n, NULL, NULL) < 0) {
@@ -95,7 +95,7 @@ int routeget(struct in_addr dst, struct in_addr *src, struct in_addr *gw )
 		goto close_rth;
 	}
 
-	ret = find_dst(&req.n,src,gw);
+	ret = find_dst(&req.n, src, gw);
 close_rth:
 	rtnl_close(&rth);
 	return ret;
