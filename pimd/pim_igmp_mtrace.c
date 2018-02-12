@@ -456,11 +456,11 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	struct interface *out_ifp;
 	struct pim_interface *pim_ifp;
 	struct pim_interface *pim_out_ifp;
+	struct pim_instance *pim;
 	struct igmp_mtrace *mtracep;
 	struct igmp_mtrace_rsp *rspp;
 	struct in_addr nh_addr;
 	enum mtrace_fwd_code fwd_code = MTRACE_FWD_CODE_NO_ERROR;
-	int forward = 1;
 	int ret;
 	size_t r_len;
 	int last_rsp_ind = 0;
@@ -468,43 +468,18 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	uint16_t recv_checksum;
 	uint16_t checksum;
 
-	pim_ifp = igmp->interface->info;
+	ifp = igmp->interface;
+	pim_ifp = ifp->info;
+	pim = pim_ifp->pim;
 
 	/* 
 	 * 6. Router Behaviour
 	 * Check if mtrace packet is addressed elsewhere and forward,
 	 * if applicable
 	 */
-	if(!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
-		FOR_ALL_INTERFACES(pim_ifp->pim->vrf, ifp) {
-			struct listnode *cnode;
-			struct connected *connected;
-
-			for(ALL_LIST_ELEMENTS_RO(ifp->connected,
-						 cnode, connected)) {
-				struct prefix_ipv4 *p;
-
-				p = (struct prefix_ipv4 *)connected->address;
-
-				if (p->family != AF_INET)
-					continue;
-
-				if(IPV4_ADDR_CMP(&p->prefix, &ip_hdr->ip_dst)
-				   == 0) {
-					forward = 0;
-					break;
-				}
-			}
-			if(!forward)
-				break;
-		}
-
-		if(forward) {
-			return mtrace_forward_packet(pim_ifp->pim,ip_hdr);
-		}
-	}
-			
-	ifp = igmp->interface;
+	if(!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
+		if(!if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET, pim->vrf_id))
+			return mtrace_forward_packet(pim,ip_hdr);
 
 	if((unsigned)igmp_msg_len < sizeof(struct igmp_mtrace)) {
 		if(PIM_DEBUG_MTRACE)
@@ -628,7 +603,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	nh_addr.s_addr = 0;
 	
-	ret = pim_nexthop_lookup(pim_ifp->pim, &nexthop, mtracep->src_addr, 1);
+	ret = pim_nexthop_lookup(pim, &nexthop, mtracep->src_addr, 1);
 
 	if(ret == 0) {
 		char nexthop_str[INET_ADDRSTRLEN];
@@ -656,7 +631,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		else
 			rspp->fwd_code = fwd_code;
 		/* 6.5 Sending Traceroute Responses */
-		return mtrace_send_response(pim_ifp->pim,mtracep,mtrace_len);
+		return mtrace_send_response(pim,mtracep,mtrace_len);
 	}
 
 	out_ifp = nexthop.interface;
@@ -673,8 +648,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	if (nh_addr.s_addr == 0) {
 		/* reached source? */
 		if(pim_if_connected_to_source(out_ifp,mtracep->src_addr)) {
-			return mtrace_send_response(pim_ifp->pim,mtracep,
-						    mtrace_len);
+			return mtrace_send_response(pim, mtracep, mtrace_len);
 		}
 		else {
 			/*
@@ -686,7 +660,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	if(mtracep->hops <= (last_rsp_ind+1)) {
-		return mtrace_send_response(pim_ifp->pim,mtracep,mtrace_len);
+		return mtrace_send_response(pim, mtracep, mtrace_len);
 	}
 
 	mtracep->checksum = 0;
@@ -704,15 +678,16 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 	static uint32_t qry_id = 0, rsp_dst = 0;
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
 	struct igmp_mtrace *mtracep;
 	uint16_t recv_checksum;
 	uint16_t checksum;
 
 	ifp = igmp->interface;
+	pim_ifp = ifp->info;
+	pim = pim_ifp->pim;
 
-	pim_ifp = igmp->interface->info;
-
-	mtracep = (struct igmp_mtrace*)igmp_msg;
+	mtracep = (struct igmp_mtrace *)igmp_msg;
 
 	recv_checksum = mtracep->checksum;
 
@@ -732,7 +707,7 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 	mtracep->checksum = checksum;
 
 	if (PIM_DEBUG_MTRACE)
-		mtrace_debug(pim_ifp,mtracep,igmp_msg_len);
+		mtrace_debug(pim_ifp, mtracep, igmp_msg_len);
 
 	/* Drop duplicate packets */
 	if(qry_id == mtracep->qry_id && rsp_dst == ip_hdr->ip_dst.s_addr) {
@@ -744,5 +719,5 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 	qry_id = mtracep->qry_id;
 	rsp_dst = ip_hdr->ip_dst.s_addr;
 
-	return mtrace_forward_packet(pim_ifp->pim,ip_hdr);
+	return mtrace_forward_packet(pim, ip_hdr);
 }
