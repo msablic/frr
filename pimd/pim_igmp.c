@@ -513,7 +513,7 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 		break;
 	case PIM_IGMP_MTRACE_QUERY_REQUEST:
 		return igmp_mtrace_recv_qry_req(igmp, ip_hdr, ip_hdr->ip_src,
-						from_str, igmp_msg
+						from_str, igmp_msg,
 						igmp_msg_len);
 	}
 
