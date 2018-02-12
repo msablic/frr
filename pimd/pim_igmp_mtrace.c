@@ -41,7 +41,7 @@ static void mtrace_rsp_init(struct igmp_mtrace_rsp *mtrace_rspp) {
 	mtrace_rspp->mbz = 0;
 	mtrace_rspp->s = 0;
 	mtrace_rspp->src_mask = 0;
-	mtrace_rspp->fwd_code = FWD_CODE_NO_ERROR;
+	mtrace_rspp->fwd_code = MTRACE_FWD_CODE_NO_ERROR;
 }
 
 static void mtrace_rsp_debug(uint32_t qry_id, int rsp,
@@ -459,7 +459,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	struct igmp_mtrace *mtracep;
 	struct igmp_mtrace_rsp *rspp;
 	struct in_addr nh_addr;
-	enum mtrace_fwd_code fwd_code = FWD_CODE_NO_ERROR;
+	enum mtrace_fwd_code fwd_code = MTRACE_FWD_CODE_NO_ERROR;
 	int forward = 1;
 	int ret;
 	size_t r_len;
@@ -554,7 +554,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 				return -1;
 			}
 			/* Unicast query on wrong interface */
-			fwd_code = FWD_CODE_WRONG_IF;
+			fwd_code = MTRACE_FWD_CODE_WRONG_IF;
 		}
 		if(qry_id == mtracep->qry_id && qry_src == from.s_addr) {
 			if (PIM_DEBUG_MTRACE)
@@ -601,7 +601,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	/* 6.2.2. 1. */
 
 	if(last_rsp_ind == MTRACE_MAX_HOPS) {
-		mtracep->rsp[MTRACE_MAX_HOPS-1].fwd_code = FWD_CODE_NO_SPACE;
+		mtracep->rsp[MTRACE_MAX_HOPS-1].fwd_code = MTRACE_FWD_CODE_NO_SPACE;
 		return mtrace_send_response(pim_ifp->pim,mtracep,igmp_msg_len);
 	}
 
@@ -652,7 +652,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace not found neighbor");
 		if(!fwd_code)
-			rspp->fwd_code = FWD_CODE_NO_ROUTE;
+			rspp->fwd_code = MTRACE_FWD_CODE_NO_ROUTE;
 		else
 			rspp->fwd_code = fwd_code;
 		/* 6.5 Sending Traceroute Responses */
@@ -666,7 +666,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	rspp->prev_hop = nh_addr;
 	rspp->in_count = htonl(MTRACE_UNKNOWN_COUNT);
 	rspp->total = htonl(MTRACE_UNKNOWN_COUNT);
-	rspp->rtg_proto = RTG_PROTO_PIM;
+	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 	rspp->s = 1;
 	rspp->src_mask = 32;
 
