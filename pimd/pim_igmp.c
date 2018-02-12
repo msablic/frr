@@ -508,11 +508,13 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 
 	case PIM_IGMP_MTRACE_RESPONSE:
 		return igmp_mtrace_recv_response(igmp, ip_hdr, ip_hdr->ip_src,
-						 from_str, igmp_msg, igmp_msg_len);
+						 from_str, igmp_msg,
+						 igmp_msg_len);
 		break;
 	case PIM_IGMP_MTRACE_QUERY_REQUEST:
 		return igmp_mtrace_recv_qry_req(igmp, ip_hdr, ip_hdr->ip_src,
-					        from_str, igmp_msg, igmp_msg_len);
+					        from_str, igmp_msg,
+						igmp_msg_len);
 	}
 
 	zlog_warn("Ignoring unsupported IGMP message type: %d", msg_type);
