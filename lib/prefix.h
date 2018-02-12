@@ -39,12 +39,6 @@
 #define ETH_ALEN 6
 #endif
 
-/* for compatibility */
-#ifdef ETHER_ADDR_LEN
-#undef ETHER_ADDR_LEN
-#endif
-#define ETHER_ADDR_LEN 6 CPP_WARN("ETHER_ADDR_LEN is being replaced by ETH_ALEN.\\n")
-
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
 /*
  * there isn't a portable ethernet address type. We define our
@@ -349,6 +343,7 @@ extern void masklen2ip6(const int, struct in6_addr *);
 
 extern const char *inet6_ntoa(struct in6_addr);
 
+extern int is_zero_mac(struct ethaddr *mac);
 extern int prefix_str2mac(const char *str, struct ethaddr *mac);
 extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 
@@ -396,6 +391,15 @@ static inline int is_default_prefix(const struct prefix *p)
 		     sizeof(struct in6_addr))))
 		return 1;
 
+	return 0;
+}
+
+static inline int is_host_route(struct prefix *p)
+{
+	if (p->family == AF_INET)
+		return (p->prefixlen == IPV4_MAX_BITLEN);
+	else if (p->family == AF_INET6)
+		return (p->prefixlen == IPV6_MAX_BITLEN);
 	return 0;
 }
 
