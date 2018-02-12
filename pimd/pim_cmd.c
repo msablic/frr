@@ -8733,6 +8733,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &undebug_msdp_packets_cmd);
+	install_element(ENABLE_NODE, &debug_mtrace_cmd);
+	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
 
 	install_element(CONFIG_NODE, &debug_igmp_cmd);
 	install_element(CONFIG_NODE, &no_debug_igmp_cmd);
