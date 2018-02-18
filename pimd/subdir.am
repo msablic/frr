@@ -104,7 +104,6 @@ noinst_HEADERS += \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \
 	pimd/pimd.h \
-	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
 	# end
 
@@ -116,6 +115,5 @@ pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
 
 pimd_mtracebis_LDADD =  lib/libfrr.la
 pimd_mtracebis_SOURCES = pimd/mtracebis.c \
-			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \
 			 # end

@@ -19,80 +19,56 @@
 
 #ifdef __linux__
 
-#include <asm/types.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <sys/types.h>
-#include <stdio.h>
-#include <arpa/inet.h>
-#include <string.h>
-
-#include "mtracebis_netlink.h"
 #include "mtracebis_routeget.h"
 
-static int find_dst(struct nlmsghdr *n, struct in_addr *src, struct in_addr *gw)
-{
-	struct rtmsg *r = NLMSG_DATA(n);
-	int len = n->nlmsg_len;
-	struct rtattr *tb[RTA_MAX + 1];
-
-	len -= NLMSG_LENGTH(sizeof(*r));
-	if (len < 0) {
-		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
-		return -1;
-	}
-
-	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
-	if (tb[RTA_PREFSRC])
-		src->s_addr = *(uint32_t *)RTA_DATA(tb[RTA_PREFSRC]);
-	if (tb[RTA_GATEWAY])
-		gw->s_addr = *(uint32_t *)RTA_DATA(tb[RTA_GATEWAY]);
-	if (tb[RTA_OIF])
-		return *(int *)RTA_DATA(tb[RTA_OIF]);
-	return 0;
-}
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <net/if.h>
 
 int routeget(struct in_addr dst, struct in_addr *src, struct in_addr *gw)
 {
-	struct {
-		struct nlmsghdr n;
-		struct rtmsg r;
-		char buf[1024];
-	} req;
+	FILE *fp;
 	int ret;
-	struct rtnl_handle rth = {.fd = -1};
+	int scand;
+	unsigned int ifindex;
+	char cmd[80];
+	char dst_str[INET_ADDRSTRLEN];
+	char src_str[INET_ADDRSTRLEN];
+	char if_str[IF_NAMESIZE];
+	char gw_str[INET_ADDRSTRLEN];
+	char dummy[80];
 
-	memset(&req, 0, sizeof(req));
+	inet_ntop(AF_INET, &dst, dst_str, sizeof(dst_str));
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = RTM_GETROUTE;
-	req.r.rtm_family = AF_INET;
-	req.r.rtm_table = 0;
-	req.r.rtm_protocol = 0;
-	req.r.rtm_scope = 0;
-	req.r.rtm_type = 0;
-	req.r.rtm_src_len = 0;
-	req.r.rtm_dst_len = 0;
-	req.r.rtm_tos = 0;
+	sprintf(cmd, "ip route get %s", dst_str);
 
-	addattr_l(&req.n, sizeof(req), RTA_DST, &dst.s_addr, 4);
-	req.r.rtm_dst_len = 32;
-
-	ret = rtnl_open(&rth, 0);
-
-	if (ret < 0)
-		return ret;
-
-	if (rtnl_talk(&rth, &req.n, 0, 0, &req.n, NULL, NULL) < 0) {
-		ret = -1;
-		goto close_rth;
+	fp = popen(cmd, "r");
+	if (fp == NULL) {
+		fprintf(stderr, "Failed to run command 'ip'\n");
+		return -1;
 	}
-
-	ret = find_dst(&req.n, src, gw);
-close_rth:
-	rtnl_close(&rth);
-	return ret;
+	scand = fscanf(fp, "%s %s %s %s %s %s %s\n", dummy, dummy, gw_str,
+		       dummy, if_str, dummy, src_str);
+	ret = pclose(fp);
+	if (ret < 0) {
+		fprintf(stderr, "%s failed: %s\n", cmd, strerror(errno));
+		return -1;
+	}
+	if (scand != 7)
+		return -1;
+	if (src)
+		src->s_addr = inet_addr(src_str);
+	if (gw)
+		gw->s_addr = inet_addr(gw_str);
+	ifindex = if_nametoindex(if_str);
+	if (ifindex == 0) {
+		fprintf(stderr, "if_nametoindex: %s\n", strerror(errno));
+		return -1;
+	}
+	return ifindex;
 }
 
 #endif /* __linux__ */
