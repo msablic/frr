@@ -357,7 +357,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 				exit(1);
 			}
 
-			if ((int)nladdr.nl_pid != peer ||
+			if (nladdr.nl_pid != (__u32)peer ||
 			    h->nlmsg_pid != rtnl->local.nl_pid ||
 			    h->nlmsg_seq != seq) {
 				if (junk) {
@@ -540,7 +540,7 @@ int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data)
 {
 	int len = RTA_LENGTH(4);
 	struct rtattr *rta;
-	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + len) > maxlen) {
+	if (NLMSG_ALIGN(n->nlmsg_len) + len > (__u32)maxlen) {
 		fprintf(stderr,"addattr32: Error! max allowed bound %d exceeded\n",maxlen);
 		return -1;
 	}
@@ -558,7 +558,7 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 	int len = RTA_LENGTH(alen);
 	struct rtattr *rta;
 
-	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len)) > maxlen) {
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > (__u32)maxlen) {
 		fprintf(stderr, "addattr_l ERROR: message exceeded bound of %d\n",maxlen);
 		return -1;
 	}
@@ -577,7 +577,7 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 
 int addraw_l(struct nlmsghdr *n, int maxlen, const void *data, int len)
 {
-	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len)) > maxlen) {
+	if (NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len) > (__u32)maxlen) {
 		fprintf(stderr, "addraw_l ERROR: message exceeded bound of %d\n",maxlen);
 		return -1;
 	}
@@ -614,7 +614,7 @@ struct rtattr *addattr_nest_compat(struct nlmsghdr *n, int maxlen, int type,
 
 int addattr_nest_compat_end(struct nlmsghdr *n, struct rtattr *start)
 {
-	struct rtattr *nest = start + NLMSG_ALIGN(start->rta_len);
+	struct rtattr *nest = (struct rtattr *)((uint8_t *)start + NLMSG_ALIGN(start->rta_len));
 
 	start->rta_len = (uint8_t *)NLMSG_TAIL(n) - (uint8_t *)start;
 	addattr_nest_end(n, nest);
@@ -626,7 +626,7 @@ int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
 	int len = RTA_LENGTH(4);
 	struct rtattr *subrta;
 
-	if ((int)(RTA_ALIGN(rta->rta_len) + len) > maxlen) {
+	if (RTA_ALIGN(rta->rta_len) + len > (unsigned short)maxlen) {
 		fprintf(stderr,"rta_addattr32: Error! max allowed bound %d exceeded\n",maxlen);
 		return -1;
 	}
@@ -644,7 +644,7 @@ int rta_addattr_l(struct rtattr *rta, int maxlen, int type,
 	struct rtattr *subrta;
 	int len = RTA_LENGTH(alen);
 
-	if ((int)(RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len)) > maxlen) {
+	if (RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len) > (unsigned short)maxlen) {
 		fprintf(stderr,"rta_addattr_l: Error! max allowed bound %d exceeded\n",maxlen);
 		return -1;
 	}
@@ -687,10 +687,10 @@ int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int l
 int __parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta,
 			         int len)
 {
-	if ((int)RTA_PAYLOAD(rta) < len)
+	if (RTA_PAYLOAD(rta) < (size_t)len)
 		return -1;
 	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
-		rta = (struct rtattr *)(uint8_t *)RTA_DATA(rta)+RTA_ALIGN(len);
+		rta = (struct rtattr *)((uint8_t *)RTA_DATA(rta) + RTA_ALIGN(len));
 		return parse_rtattr_nested(tb, max, rta);
 	}
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
